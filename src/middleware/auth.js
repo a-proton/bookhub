@@ -84,28 +84,6 @@ export const checkAndRefreshAuth = (navigate) => {
   return true;
 };
 
-// Example of how to use in a React component (keep this as reference)
-/*
-import { useEffect } from "react";
-import { useNavigate } from 'react-router-dom';
-import { checkAndRefreshAuth } from './path-to-this-file';
-
-function YourComponent() {
-  const navigate = useNavigate();
-  
-  useEffect(() => {
-    if (!checkAndRefreshAuth(navigate)) {
-      return; // Stop if authentication failed
-    }
-    
-    // Rest of your component code...
-    fetchApplications();
-  }, [navigate]);
-  
-  // Rest of component...
-}
-*/
-
 // Admin middleware: checks if authenticated user is an admin
 const isAdmin = async (req, res, next) => {
   console.log("isAdmin middleware called");

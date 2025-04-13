@@ -380,46 +380,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Google login handler
-  const handleGoogleLogin = async (credential) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await api.post('/auth/google-signin', {
-        credential
-      });
-
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
-        
-        // Store user data
-        const userData = {
-          ...response.data.user,
-          fullName: response.data.user.fullName || response.data.user.name || 'User'
-        };
-        localStorage.setItem('user', JSON.stringify(userData));
-        
-        // Set current user
-        setCurrentUser(userData);
-        setIsAuthenticated(true);
-        
-        // If the user is new and needs to complete their profile
-        if (response.data.redirectToPreferences) {
-          return { success: true, redirectToPreferences: true };
-        }
-        
-        return { success: true };
-      }
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || "Google login failed";
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Registration
   const register = async (userData) => {
     try {
@@ -594,7 +554,6 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     login,
     adminLogin,
-    handleGoogleLogin,
     register,
     logout,
     updatePreferences,

@@ -113,7 +113,7 @@ const ApplicationReview = () => {
   const handleAction = async (id, action) => {
     try {
       // Fixed the API endpoint to match server.js route and using api instead of authAxios
-      await api.put(`/membership/admin/applications/${id}/${action}`, {
+      await api.put(`/memberships/admin/applications/${id}/${action}`, {
         notes: noteInput
       });
       
@@ -402,7 +402,7 @@ const ApplicationReview = () => {
                               variant="outline" 
                               size="icon" 
                               className="h-8 w-8 bg-green-50 hover:bg-green-100 text-green-600 border-green-200"
-                              onClick={() => handleAction(app._id, 'approve')}
+                              onClick={() => handleAction(app._id, 'approved')}
                             >
                               <Check className="h-4 w-4" />
                             </Button>
@@ -410,7 +410,7 @@ const ApplicationReview = () => {
                               variant="outline" 
                               size="icon" 
                               className="h-8 w-8 bg-red-50 hover:bg-red-100 text-red-600 border-red-200"
-                              onClick={() => handleAction(app._id, 'reject')}
+                              onClick={() => handleAction(app._id, 'rejected')}
                             >
                               <X className="h-4 w-4" />
                             </Button>

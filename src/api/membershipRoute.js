@@ -239,11 +239,10 @@ router.get('/admin/applications', auth.isAdmin, async (req, res) => {
 });
 
 // Process membership application (approve/reject) - Admin only
-router.put('/admin/applications/:id', auth.isAdmin, async (req, res) => {
+router.put('/admin/applications/:id/:actions', auth.isAdmin, async (req, res) => {
   try {
     const applicationId = req.params.id;
-    const { status, rejectionReason } = req.body;
-    
+    const status = req.params.actions;
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({ message: 'Invalid status value' });
     }
@@ -261,9 +260,9 @@ router.put('/admin/applications/:id', auth.isAdmin, async (req, res) => {
     application.status = status;
     application.processedDate = new Date();
     
-    if (status === 'rejected' && rejectionReason) {
-      application.rejectionReason = rejectionReason;
-    }
+    // if (status === 'rejected' && rejectionReason) {
+    //   application.rejectionReason = rejectionReason;
+    // }
     
     await application.save();
     

@@ -7,7 +7,6 @@ import Cart from "./pages/Cart";
 import BookList from "./pages/BookList";
 import Login from "./pages/Login";
 import SignUpPage from "./pages/SignUpPage";
-import AuthCallback from "./pages/AuthCallback";
 import MembershipForm from './pages/Membership';
 import Profile from './pages/userProfile';
 import ContactUs from './pages/ContactUs';
@@ -65,12 +64,7 @@ function App() {
               </Layout>
             } />
             
-            {/* Authentication Callback Route */}
-            <Route path="/auth-callback" element={
-              <Layout>
-                <AuthCallback />
-              </Layout>
-            } />
+           
             
             {/* User Preferences Page - For completing profile after signup */}
             <Route path="/complete-profile" element={
