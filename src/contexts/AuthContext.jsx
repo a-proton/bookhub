@@ -22,6 +22,37 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Add response interceptor to handle token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If error is 401 (Unauthorized) and not already retrying
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // Try to refresh the token
+        const refreshed = await refreshTokenFunction();
+        
+        if (refreshed) {
+          // If token refresh was successful, retry the original request
+          originalRequest.headers.Authorization = `Bearer ${localStorage.getItem('token')}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+      }
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
+// This will be set by the AuthProvider
+let refreshTokenFunction = async () => false;
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -39,95 +70,105 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Initialize auth state from localStorage on component mount
-  useEffect(() => {
-    console.log("Auth provider initialized");
-    console.log("localStorage token:", localStorage.getItem('token'));
-    console.log("localStorage user:", localStorage.getItem('user'));
-    checkAuthStatus();
-  }, []);
+  // Check if token is expired by decoding JWT
+  const isTokenExpired = (token) => {
+    try {
+      const tokenParts = token.split('.');
+      if (tokenParts.length !== 3) return true;
+      
+      const payload = JSON.parse(atob(tokenParts[1]));
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      // Check if token has expired
+      if (payload.exp && payload.exp < currentTime) {
+        console.log('Token expired');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('Error checking token expiration:', e);
+      return true; // If we can't check, better to assume expired
+    }
+  };
 
+  // More reliable checkAuthStatus function
   const checkAuthStatus = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      let storedUserData = localStorage.getItem('user');
+      const userData = localStorage.getItem('user');
       
-      // If no token, user is not authenticated
+      // No token means not authenticated
       if (!token) {
-        console.log('No token found in localStorage');
+        console.log('No token found in localStorage, user is not authenticated');
         setIsAuthenticated(false);
         setCurrentUser(null);
         setUserPreferences(null);
         setLoading(false);
         return;
       }
-
-      // If we have stored user data, use it immediately
-      if (storedUserData) {
+      
+      // If we have both token and user data, consider user authenticated immediately
+      if (userData) {
         try {
-          const storedUser = JSON.parse(storedUserData);
-          console.log('Retrieved user from localStorage:', storedUser);
-          setCurrentUser(storedUser);
+          const parsedUser = JSON.parse(userData);
+          console.log('User data found in localStorage:', parsedUser);
+          setCurrentUser(parsedUser);
           setIsAuthenticated(true);
+          
+          // IMPORTANT: Don't verify token here - consider user authenticated based on localStorage
+          // This prevents logout on page refresh when server might be unreachable
         } catch (e) {
           console.error('Error parsing stored user data:', e);
-          storedUserData = null;
+          // If parsing fails, continue and try to validate token
         }
       }
 
-      // Validate token by decoding JWT
-      try {
-        const tokenParts = token.split('.');
-        if (tokenParts.length !== 3) {
-          throw new Error('Invalid token format');
-        }
-        
-        const payload = JSON.parse(atob(tokenParts[1]));
-        const currentTime = Math.floor(Date.now() / 1000);
-        
-        // Check if token has expired
-        if (payload.exp && payload.exp < currentTime) {
-          console.log('Token expired');
-          logout();
-          return;
-        }
-        
-        // If we don't have stored user data, create a user object from the token
-        if (!storedUserData) {
-          const userId = payload.userId || payload.id || payload.sub;
-          const tempUser = {
-            _id: userId,
-            id: userId,
-            email: payload.email,
-            fullName: payload.name || payload.fullName || 'User',
-            role: payload.role || 'user',
-            hasMembership: payload.hasMembership || false,
-            phone: payload.phone || ''
-          };
-          
-          console.log('Created user from token payload:', tempUser);
-          localStorage.setItem('user', JSON.stringify(tempUser));
-          setCurrentUser(tempUser);
-          setIsAuthenticated(true);
-        }
-
-        // Instead of using '/users/profile', validate the token
-        // This uses the token validation endpoint, which should be implemented in your backend
-        await validateToken(token);
-      } catch (error) {
-        console.error('Token parsing error:', error);
-        logout();
-      }
+      // Now do a background token validation without blocking authentication
+      validateTokenInBackground(token);
     } catch (error) {
       console.error('Auth check error:', error);
-      logout();
+      // DO NOT LOGOUT here - let the user stay logged in even if there's an error
     } finally {
       setLoading(false);
     }
   };
 
-  // Validate token with backend
+  // Add this new function to validate token in background
+  const validateTokenInBackground = async (token) => {
+    try {
+      // First try the validation endpoint
+      const response = await api.get('/users/validate-token');
+      if (response.data && response.data.valid) {
+        console.log('Token validated successfully in background');
+        if (response.data.user) {
+          updateUserData(response.data.user);
+        }
+      } 
+    } catch (err) {
+      // If validation endpoint doesn't exist, try another endpoint
+      if (err.response?.status === 404) {
+        try {
+          const meResponse = await api.get('/users/me');
+          if (meResponse.status === 200 && meResponse.data.user) {
+            console.log('User data fetched successfully in background');
+            updateUserData(meResponse.data.user);
+          }
+        } catch (innerErr) {
+          // Only log the error, don't logout
+          console.warn('Background validation failed:', innerErr.message);
+        }
+      } else {
+        console.warn('Token validation failed in background:', err.message);
+        // If it's a 401/403, quietly try to refresh the token
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          refreshToken().catch(e => console.warn('Token refresh failed:', e.message));
+        }
+      }
+    }
+  };
+
+  // Improved validateToken function for explicit validation
   const validateToken = async (token) => {
     try {
       // Try the token validation endpoint
@@ -144,18 +185,15 @@ export const AuthProvider = ({ children }) => {
         return true;
       } else {
         console.warn('Token validation failed');
-        logout();
         return false;
       }
     } catch (err) {
-      // If the validate-token endpoint doesn't exist, try an alternative approach
-      // This is a fallback in case your API doesn't have a dedicated validation endpoint
+      // If 404, endpoint doesn't exist, try alternative approach
       if (err.response?.status === 404) {
         console.log('Validation endpoint not found, trying alternative check...');
         
         try {
           // Try a basic endpoint that requires authentication
-          // This could be any protected endpoint that exists in your API
           const checkResponse = await api.get('/users/me');
           
           if (checkResponse.status === 200) {
@@ -168,20 +206,27 @@ export const AuthProvider = ({ children }) => {
             
             return true;
           }
-        } catch (altErr) {
-          console.error('Alternative token check failed:', altErr);
-          logout();
           return false;
+        } catch (altErr) {
+          // Only treat 401/403 as authentication failures
+          if (altErr.response?.status === 401 || altErr.response?.status === 403) {
+            console.error('Authentication failed:', altErr.response?.status);
+            return false;
+          }
+          
+          // For other errors (like network issues), assume token is still valid
+          // This prevents logout on temporary network problems
+          console.warn('Network or server error during auth check, assuming still valid:', altErr);
+          return true;
         }
-      } else {
-        console.error('Token validation error:', err);
-        
-        // If it's an auth error (401), logout silently
-        if (err.response?.status === 401) {
-          logout();
-        }
-        
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        // Clear token invalid response
+        console.error('Token invalid:', err.response?.status);
         return false;
+      } else {
+        // For network errors, assume token still valid to prevent logout
+        console.warn('Error during token validation, assuming still valid:', err);
+        return true;
       }
     }
   };
@@ -232,9 +277,9 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error("Failed to fetch user data:", err);
-      if (err.response?.status === 401) {
-        logout();
-      }
+      // DON'T logout on authentication errors anymore
+      // We want to preserve the authentication state from localStorage
+      // regardless of server response
     }
   };
 
@@ -252,6 +297,48 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(updatedUser));
     setCurrentUser(updatedUser);
   };
+
+  // Improved refreshToken function
+  const refreshToken = async () => {
+    try {
+      const currentToken = localStorage.getItem('token');
+      if (!currentToken) {
+        console.log('No token to refresh');
+        return false;
+      }
+  
+      // Try to refresh the token
+      const response = await api.post('/users/refresh-token');
+  
+      if (response.data.token) {
+        // Update token in localStorage
+        localStorage.setItem('token', response.data.token);
+        
+        // Also update user data if provided
+        if (response.data.user) {
+          const updatedUser = {
+            ...response.data.user,
+            fullName: response.data.user.fullName || response.data.user.name || 'User'
+          };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          setCurrentUser(updatedUser);
+        }
+        
+        console.log('Token refreshed successfully');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      
+      // DON'T logout on errors - let the user stay logged in
+      // We'll try again later or let the token expire naturally
+      return false;
+    }
+  };
+
+  // Set the refreshTokenFunction for the interceptor to use
+  refreshTokenFunction = refreshToken;
 
   // Regular login
   const login = async (email, password) => {
@@ -398,41 +485,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Refresh token function
-  const refreshToken = async () => {
-    try {
-      const currentToken = localStorage.getItem('token');
-      if (!currentToken) {
-        console.log('No token to refresh');
-        return false;
-      }
-  
-      const response = await api.post('/users/refresh-token');
-  
-      if (response.data.token) {
-        // Update token in localStorage
-        localStorage.setItem('token', response.data.token);
-        
-        // Also update user data if provided
-        if (response.data.user) {
-          const updatedUser = {
-            ...response.data.user,
-            fullName: response.data.user.fullName || response.data.user.name || 'User'
-          };
-          localStorage.setItem('user', JSON.stringify(updatedUser));
-          setCurrentUser(updatedUser);
-        }
-        
-        console.log('Token refreshed successfully');
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error refreshing token:', error);
-      return false;
-    }
-  };
-
   // Logout
   const logout = () => {
     localStorage.removeItem('token');
@@ -545,6 +597,37 @@ export const AuthProvider = ({ children }) => {
   const isAdmin = () => {
     return currentUser?.role === 'admin';
   };
+
+  // Initialize auth state and setup refresh timer
+  useEffect(() => {
+    console.log("Auth provider initialized");
+    
+    // CRITICAL: Immediately set authentication state from localStorage
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (token && userData) {
+      try {
+        setCurrentUser(JSON.parse(userData));
+        setIsAuthenticated(true);
+        console.log("User authenticated from localStorage immediately");
+      } catch (e) {
+        console.error("Error parsing user data from localStorage");
+      }
+    }
+    
+    // Then check auth status which will validate in the background
+    checkAuthStatus();
+    
+    // Set up automatic token refresh
+    const refreshInterval = setInterval(() => {
+      if (localStorage.getItem('token')) {
+        refreshToken().catch(e => console.warn('Scheduled token refresh failed:', e.message));
+      }
+    }, 15 * 60 * 1000); // Every 15 minutes
+    
+    return () => clearInterval(refreshInterval);
+  }, []);
 
   const value = {
     currentUser,

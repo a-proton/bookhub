@@ -186,7 +186,7 @@ const MembershipForm = () => {
 
       // Redirect after alert is closed
       setTimeout(() => {
-        navigate("/dashboard");
+        navigate("/");
       }, 2000);
       
     } catch (error) {
