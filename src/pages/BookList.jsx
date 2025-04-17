@@ -11,17 +11,21 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
-import axios from 'axios';
+import { Search, Globe } from "lucide-react";
+import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const BooksSection = () => {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedLanguage, setSelectedLanguage] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const { addToCart } = useCart();
   const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const navigate = useNavigate();
 
   // Fetch books from API
   useEffect(() => {
@@ -44,23 +48,50 @@ const BooksSection = () => {
 
   const handleAddToCart = (book) => {
     addToCart(book);
+    setAlertMessage('Item has been added to your cart successfully.');
     setShowAlert(true);
   };
 
+  // Modified handleRentBook function to navigate directly to checkout
   const handleRentBook = (book) => {
-    console.log('Renting book:', book.title);
+    try {
+      // Add book to cart as rental
+      addToCart({
+        ...book,
+        isRental: true,
+        rentalPrice: book.price * 0.3, // 30% of purchase price
+        rentalDuration: '14 days'
+      });
+      
+      setAlertMessage('Book rental added to cart! Redirecting to checkout...');
+      setShowAlert(true);
+      
+      // Navigate directly to checkout after a short delay
+      setTimeout(() => {
+        setShowAlert(false);
+        navigate('/checkout'); // Navigate to checkout instead of cart
+      }, 1500);
+    } catch (err) {
+      console.error('Error adding rental to cart:', err);
+      setAlertMessage('Error adding rental to cart. Please try again.');
+      setShowAlert(true);
+    }
   };
 
   // Get unique genres from books
   const genres = ['All', ...new Set(books.map(book => book.genre).filter(Boolean))];
+  
+  // Get unique languages from books
+  const languages = ['All', ...new Set(books.map(book => book.language).filter(Boolean))];
 
   const filteredBooks = books
     .filter(book => {
       const matchesCategory = selectedCategory === 'All' || book.genre === selectedCategory;
+      const matchesLanguage = selectedLanguage === 'All' || book.language === selectedLanguage;
       const matchesSearch = searchQuery === '' || 
         book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         book.author.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
+      return matchesCategory && matchesLanguage && matchesSearch;
     });
 
   return (
@@ -81,7 +112,8 @@ const BooksSection = () => {
       </div>
 
       {/* Category Filter */}
-      <div className="mb-8">
+      <div className="mb-4">
+        <h3 className="text-lg font-medium mb-2">Genre</h3>
         <div className="flex flex-wrap gap-2">
           {genres.map(genre => (
             <Button
@@ -91,6 +123,23 @@ const BooksSection = () => {
               className="rounded-full"
             >
               {genre}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {/* Language Filter */}
+      <div className="mb-8">
+        <h3 className="text-lg font-medium mb-2">Language</h3>
+        <div className="flex flex-wrap gap-2">
+          {languages.map(language => (
+            <Button
+              key={language}
+              onClick={() => setSelectedLanguage(language)}
+              variant={selectedLanguage === language ? "default" : "secondary"}
+              className="rounded-full"
+            >
+              {language}
             </Button>
           ))}
         </div>
@@ -116,20 +165,35 @@ const BooksSection = () => {
           {filteredBooks.length > 0 ? (
             filteredBooks.map(book => (
               <div key={book._id} className="bg-white rounded-lg shadow-lg overflow-hidden transition-transform hover:scale-105">
-                <img
-                  src={book.imageUrl || '/api/placeholder/200/300'}
-                  alt={book.title}
-                  className="w-full h-64 object-cover"
-                  onError={(e) => {
-                    e.target.src = '/api/placeholder/200/300';
-                  }}
-                />
+                {/* Language and Genre Tags positioned over image */}
+                <div className="relative">
+                  <img
+                    src={book.imageUrl || '/api/placeholder/200/300'}
+                    alt={book.title}
+                    className="w-full h-64 object-cover"
+                    onError={(e) => {
+                      e.target.src = '/api/placeholder/200/300';
+                    }}
+                  />
+                  <div className="absolute top-2 left-2 flex items-center">
+                    <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs flex items-center">
+                      <Globe className="h-3 w-3 mr-1" />
+                      {book.language || 'Unknown'}
+                    </span>
+                  </div>
+                  {book.genre && (
+                    <div className="absolute top-2 right-2">
+                      <span className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs">
+                        {book.genre}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div className="p-4">
                   <h3 className="text-lg font-semibold mb-2">{book.title}</h3>
                   <p className="text-gray-600 mb-2">by {book.author}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-blue-500 font-bold">Rs.{book.price}</span>
-                    <div className="text-gray-600 text-sm">{book.genre}</div>
                   </div>
                   <p className="text-sm text-gray-500 mt-2 line-clamp-2">{book.description}</p>
                   <div className="mt-4 flex gap-2">
@@ -165,13 +229,13 @@ const BooksSection = () => {
       <AlertDialog open={showAlert} onOpenChange={setShowAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Success!</AlertDialogTitle>
+            <AlertDialogTitle>Notice</AlertDialogTitle>
             <AlertDialogDescription>
-              Item has been added to your cart successfully.
+              {alertMessage}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction>Continue Shopping</AlertDialogAction>
+            <AlertDialogAction>Continue</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

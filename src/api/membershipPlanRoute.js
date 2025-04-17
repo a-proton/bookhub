@@ -1,13 +1,13 @@
-// src/api/membershipPlanRoute.js
+ 
 import express from "express";
 import MembershipPlan from '../database/schema/membershipPlans.js';
 import Membership from '../database/schema/membershipSchema.js';
-import MembershipApplication from '../database/schema/membershipApplicationSchema.js'; // Add this line
+import MembershipApplication from '../database/schema/membershipApplicationSchema.js';  
 import auth from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all active membership plans (public)
+ 
 router.get('/plans', async (req, res) => {
   try {
     const plans = await MembershipPlan.find({ isActive: true });

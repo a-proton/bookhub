@@ -49,40 +49,59 @@ const ContactUs = () => {
   };
   
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevent default form submission
     setIsSubmitting(true);
     
-    // Simulate form submission
-    setTimeout(() => {
-      console.log('Form submitted:', formData);
-      
-      // Show success toast
-      toast({
-        title: "Message Sent",
-        description: "Your message has been sent successfully! We will get back to you soon.",
-        variant: "success",
+    try {
+      // Send data to the backend
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
       });
       
-      setIsSubmitting(false);
-      setSubmitted(true);
+      const result = await response.json();
       
-      // Reset form after successful submission
-      if (!isAuthenticated) {
-        setFormData({
-          name: '',
-          email: '',
-          subject: '',
-          message: ''
+      if (result.success) {
+        toast({
+          title: "Message Sent",
+          description: "Your message has been sent successfully! We will get back to you soon.",
+          variant: "success",
         });
+        
+        setSubmitted(true);
+        
+        // Reset form after successful submission
+        if (!isAuthenticated) {
+          setFormData({
+            name: '',
+            email: '',
+            subject: '',
+            message: ''
+          });
+        } else {
+          setFormData({
+            name: currentUser.fullName || '',
+            email: currentUser.email || '',
+            subject: '',
+            message: ''
+          });
+        }
       } else {
-        setFormData({
-          name: currentUser.fullName || '',
-          email: currentUser.email || '',
-          subject: '',
-          message: ''
-        });
+        throw new Error(result.message || 'Failed to send message');
       }
-    }, 1500);
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send your message. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const handleSendAnother = () => {

@@ -22,6 +22,12 @@ const bookSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  language: {
+    type: String,
+    required: true,
+    trim: true,
+    default: 'English'
+  },
   publicationYear: {
     type: Number,
     required: true

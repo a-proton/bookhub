@@ -10,7 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Loader2, Pencil } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const BookManagement = () => {
   const { toast } = useToast()
@@ -18,11 +19,14 @@ const BookManagement = () => {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editBookId, setEditBookId] = useState(null)
   const [formData, setFormData] = useState({
     title: "",
     author: "",
     isbn: "",
     genre: "",
+    language: "English", // Default language
     publicationYear: "",
     publisher: "",
     description: "",
@@ -31,8 +35,24 @@ const BookManagement = () => {
     stockQuantity: 1,
   })
 
+  // Common languages for books
+  const commonLanguages = [
+    "English",
+    "Spanish",
+    "French",
+    "Neplai",
+    "Chinese",
+    "Japanese",
+    "Russian",
+    "Arabic",
+    "Hindi",
+    "Portuguese",
+    "Italian",
+    "Other"
+  ]
+
   // Get the correct API base URL
-  const API_BASE_URL = "http://localhost:5173" // Make sure this matches your server URL
+  const API_BASE_URL = "http://localhost:5173"  
 
   // Get auth token on component load and whenever needed
   const getAuthToken = () => {
@@ -161,6 +181,32 @@ const BookManagement = () => {
     })
   }
 
+  // Handle select change for language dropdown
+  const handleSelectChange = (name, value) => {
+    setFormData({
+      ...formData,
+      [name]: value,
+    })
+  }
+
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      author: "",
+      isbn: "",
+      genre: "",
+      language: "English",
+      publicationYear: "",
+      publisher: "",
+      description: "",
+      price: "",
+      imageUrl: "",
+      stockQuantity: 1,
+    })
+    setIsEditing(false)
+    setEditBookId(null)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
@@ -173,52 +219,49 @@ const BookManagement = () => {
         return
       }
 
-      console.log("Submitting book data:", formData)
-      const response = await axiosInstance.post("/api/admin/books", formData)
+      let response
+      
+      if (isEditing) {
+        // Update existing book
+        console.log("Updating book data:", formData)
+        response = await axiosInstance.put(`/api/admin/books/${editBookId}`, formData)
+        console.log("Book updated successfully:", response.data)
+        toast({
+          title: "Success",
+          description: "Book updated successfully!",
+          variant: "default",
+        })
+      } else {
+        // Add new book
+        console.log("Submitting new book data:", formData)
+        response = await axiosInstance.post("/api/admin/books", formData)
+        console.log("Book added successfully:", response.data)
+        toast({
+          title: "Success",
+          description: "Book added successfully!",
+          variant: "default",
+        })
+      }
 
-      console.log("Book added successfully:", response.data)
-
-      // Reset form after successful submission
-      setFormData({
-        title: "",
-        author: "",
-        isbn: "",
-        genre: "",
-        publicationYear: "",
-        publisher: "",
-        description: "",
-        price: "",
-        imageUrl: "",
-        stockQuantity: 1,
-      })
-
-      // Refresh the book list
+      // Reset form and refresh the book list
+      resetForm()
       fetchBooks()
-
-      toast({
-        title: "Success",
-        description: "Book added successfully!",
-        variant: "default",
-      })
     } catch (err) {
-      console.error("Error adding book:", err)
+      console.error(`Error ${isEditing ? 'updating' : 'adding'} book:`, err)
 
       // Handle auth errors specifically
       if (err.response && err.response.status === 401) {
-       // setError("Authentication failed. Please log in again.")
         toast({
           title: "Authentication Error",
           description: "Your session has expired. Please log in again.",
           variant: "destructive",
         })
-        // Optionally redirect to login
-        // window.location.href = '/login';
       } else if (err.response) {
         console.error("Error response:", err.response.status, err.response.data)
-        setError(`Failed to add book (${err.response.status}): ${err.response.data.message || "Please try again."}`)
+        setError(`Failed to ${isEditing ? 'update' : 'add'} book (${err.response.status}): ${err.response.data.message || "Please try again."}`)
         toast({
           title: "Error",
-          description: `Failed to add book. ${err.response?.data?.message || "Please try again."}`,
+          description: `Failed to ${isEditing ? 'update' : 'add'} book. ${err.response?.data?.message || "Please try again."}`,
           variant: "destructive",
         })
       } else if (err.request) {
@@ -229,16 +272,44 @@ const BookManagement = () => {
           variant: "destructive",
         })
       } else {
-        setError("Failed to add book: " + err.message)
+        setError(`Failed to ${isEditing ? 'update' : 'add'} book: ` + err.message)
         toast({
           title: "Error",
-          description: "Failed to add book. Please try again.",
+          description: `Failed to ${isEditing ? 'update' : 'add'} book. Please try again.`,
           variant: "destructive",
         })
       }
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleEdit = (book) => {
+    // Set form data with book details
+    setFormData({
+      title: book.title,
+      author: book.author,
+      isbn: book.isbn,
+      genre: book.genre,
+      language: book.language || "English", // Handle books without language field
+      publicationYear: book.publicationYear,
+      publisher: book.publisher,
+      description: book.description,
+      price: book.price,
+      imageUrl: book.imageUrl,
+      stockQuantity: book.stockQuantity,
+    })
+    
+    // Set editing state
+    setIsEditing(true)
+    setEditBookId(book._id)
+    
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleCancelEdit = () => {
+    resetForm()
   }
 
   const handleDelete = async (bookId) => {
@@ -309,8 +380,12 @@ const BookManagement = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Add New Book</CardTitle>
-          <CardDescription>Enter the details of the book you want to add to your inventory.</CardDescription>
+          <CardTitle>{isEditing ? "Edit Book" : "Add New Book"}</CardTitle>
+          <CardDescription>
+            {isEditing 
+              ? "Edit the details of the selected book."
+              : "Enter the details of the book you want to add to your inventory."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -327,12 +402,40 @@ const BookManagement = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="isbn">ISBN</Label>
-                <Input id="isbn" name="isbn" value={formData.isbn} onChange={handleChange} required />
+                <Input 
+                  id="isbn" 
+                  name="isbn" 
+                  value={formData.isbn} 
+                  onChange={handleChange} 
+                  required 
+                  disabled={isEditing} // Disable ISBN editing to prevent conflicts
+                />
+                {isEditing && (
+                  <p className="text-xs text-muted-foreground">ISBN cannot be changed after creation.</p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="genre">Genre</Label>
                 <Input id="genre" name="genre" value={formData.genre} onChange={handleChange} required />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="language">Language</Label>
+                <Select 
+                  name="language" 
+                  value={formData.language} 
+                  onValueChange={(value) => handleSelectChange("language", value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {commonLanguages.map((lang) => (
+                      <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
@@ -353,7 +456,7 @@ const BookManagement = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="price">Price ($)</Label>
+                <Label htmlFor="price">Price (Rs.)</Label>
                 <Input
                   id="price"
                   name="price"
@@ -397,16 +500,24 @@ const BookManagement = () => {
               />
             </div>
 
-            <Button type="submit" disabled={submitting}>
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding Book...
-                </>
-              ) : (
-                "Add Book"
+            <div className="flex gap-2">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isEditing ? "Updating Book..." : "Adding Book..."}
+                  </>
+                ) : (
+                  isEditing ? "Update Book" : "Add Book"
+                )}
+              </Button>
+              
+              {isEditing && (
+                <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                  Cancel Edit
+                </Button>
               )}
-            </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -434,6 +545,7 @@ const BookManagement = () => {
                     <TableHead>Title</TableHead>
                     <TableHead>Author</TableHead>
                     <TableHead>ISBN</TableHead>
+                    <TableHead>Language</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>Stock</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -445,14 +557,23 @@ const BookManagement = () => {
                       <TableCell className="font-medium">{book.title}</TableCell>
                       <TableCell>{book.author}</TableCell>
                       <TableCell>{book.isbn}</TableCell>
-                      <TableCell>${parseFloat(book.price).toFixed(2)}</TableCell>
+                      <TableCell>{book.language || "English"}</TableCell>
+                      <TableCell>Rs.{parseFloat(book.price).toFixed(2)}</TableCell>
                       <TableCell>{book.stockQuantity}</TableCell>
                       <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(book)}
+                          className="mr-2"
+                        >
+                          <Pencil className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
                         <Button
                           variant="destructive"
                           size="sm"
                           onClick={() => handleDelete(book._id)}
-                          className="ml-2"
                         >
                           Delete
                         </Button>

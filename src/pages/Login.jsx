@@ -40,33 +40,33 @@ const Login = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (validateForm()) {
-      try {
-        setIsLoading(true);
-        
-        // Use the Auth Context login function instead of direct fetch
-        const result = await login(email, password);
-        
-        if (result.success) {
-          setDialogTitle('Login Successful');
-          setDialogMessage('You have successfully logged in!');
-          setShowDialog(true);
-        } else {
-          throw new Error(result.message || 'Login failed');
-        }
-      } catch (error) {
-        console.error('Login error:', error);
-        setDialogTitle('Login Failed');
-        setDialogMessage(error.message || authError || 'Something went wrong. Please try again.');
+// Inside handleSubmit function
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (validateForm()) {
+    try {
+      setIsLoading(true);
+      
+      // This login function from AuthContext needs to be using the correct endpoint
+      const result = await login(email, password);
+      
+      if (result.success) {
+        setDialogTitle('Login Successful');
+        setDialogMessage('You have successfully logged in!');
         setShowDialog(true);
-      } finally {
-        setIsLoading(false);
+      } else {
+        throw new Error(result.error || 'Login failed');
       }
+    } catch (error) {
+      console.error('Login error:', error);
+      setDialogTitle('Login Failed');
+      setDialogMessage(error.message || authError || 'Something went wrong. Please try again.');
+      setShowDialog(true);
+    } finally {
+      setIsLoading(false);
     }
-  };
-
+  }
+};
   const handleDialogClose = () => {
     setShowDialog(false);
     

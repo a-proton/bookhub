@@ -13,21 +13,21 @@ import booksPublicRouter from '../src/api/bookRoute.js';
 import membershipPlanRoutes from './api/membershipPlanRoute.js';
 import rentalRoutes from './api/rentalRoutes.js'; 
 import messageRoutes from './api/messageRoute.js';  
-
+import authRoutes from './api/authRoutes.js';  
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Debug middleware to log all incoming requests
+ 
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.originalUrl} from origin: ${req.headers.origin}`);
   next();
 });
 
-// Improved CORS configuration
+ 
 app.use(cors({
   origin: function(origin, callback) {
     const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
-    // Allow requests with no origin (like mobile apps or curl requests)
+  
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -43,8 +43,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Token validation endpoint
-app.get('/api/users/validate-token', (req, res) => {
+ 
+app.get('/api/users/validate-token', async (req, res) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
     
@@ -54,12 +54,26 @@ app.get('/api/users/validate-token', (req, res) => {
     
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret_key');
     
-    // Return user data (excluding sensitive info)
+   
+    const user = await models.User.findById(decoded.id || decoded.userId).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+  
     return res.status(200).json({ 
       user: {
-        id: decoded.userId,
-        email: decoded.email,
-        role: decoded.role || 'user'
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        age: user.age,
+        gender: user.gender,
+        location: user.location,
+        preferredLanguages: user.preferredLanguages || [],
+        favoriteGenres: user.favoriteGenres || [],
+        role: user.role || 'user',
+        hasMembership: user.hasMembership
       }
     });
   } catch (error) {
@@ -68,7 +82,6 @@ app.get('/api/users/validate-token', (req, res) => {
   }
 });
 
-// Admin Routes
 const adminRoutes = express.Router();
 
 adminRoutes.post('/login', (req, res) => {
@@ -94,10 +107,10 @@ adminRoutes.post('/login', (req, res) => {
   return res.status(401).json({ message: 'Invalid admin credentials' });
 });
 
-// Google OAuth Routes
-const authRoutes = express.Router();
+ 
+const googleauthRoutes = express.Router();
 
-authRoutes.get('/google/callback', async (req, res) => {
+googleauthRoutes.get('/google/callback', async (req, res) => {
   const { code } = req.query;
   console.log('OAuth Callback GET Code:', code);
 
@@ -145,7 +158,7 @@ authRoutes.get('/google/callback', async (req, res) => {
   }
 });
 
-authRoutes.post('/google/callback', async (req, res) => {
+googleauthRoutes.post('/google/callback', async (req, res) => {
   const { code } = req.body;
   console.log('OAuth Callback POST Code:', code);
 
@@ -206,12 +219,12 @@ app.use('/api/users', userRoutes);
 app.use('/api/memberships', membershipRoutes);
 app.use('/api/membership', membershipPlanRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/googleauth', googleauthRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/rentals', rentalRoutes); // Register the rental routes
-
-// Register the book routes (both admin and public)
+app.use('/api/rentals', rentalRoutes);  
+ 
 app.use('/api/admin/books', bookRoutes);
-app.use('/api/books', booksPublicRouter); // Add the public books API route
+app.use('/api/books', booksPublicRouter);  
 
 // Simple test route
 app.get('/api/test', (req, res) => {

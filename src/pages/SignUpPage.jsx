@@ -223,10 +223,9 @@ const SignUpPage = () => {
         <CardContent className="pb-8">
           <form onSubmit={handleSubmit}> 
             <div className="relative mb-6">
-              <Separator />
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#f5f0e8] px-2 text-sm text-purple-900">
-                OR
-              </div>
+               
+              
+              
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

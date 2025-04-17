@@ -58,8 +58,19 @@ router.post("/", isAdmin, async (req, res) => {
     console.log("POST /api/admin/books route hit")
     console.log("Request body:", req.body)
 
-    const { title, author, isbn, genre, publicationYear, publisher, description, price, imageUrl, stockQuantity } =
-      req.body
+    const { 
+      title, 
+      author, 
+      isbn, 
+      genre, 
+      language,
+      publicationYear, 
+      publisher, 
+      description, 
+      price, 
+      imageUrl, 
+      stockQuantity 
+    } = req.body
 
     // Validate required fields
     if (!title || !author || !isbn) {
@@ -77,6 +88,7 @@ router.post("/", isAdmin, async (req, res) => {
       author,
       isbn,
       genre,
+      language: language || 'English',
       publicationYear,
       publisher,
       description,
@@ -100,8 +112,23 @@ router.post("/", isAdmin, async (req, res) => {
 // Update book
 router.put("/:id", isAdmin, async (req, res) => {
   try {
-    const { title, author, isbn, genre, publicationYear, publisher, description, price, imageUrl, stockQuantity } =
-      req.body
+    console.log("PUT /api/admin/books/:id route hit")
+    console.log("Request body:", req.body)
+    console.log("Book ID:", req.params.id)
+    
+    const { 
+      title, 
+      author, 
+      isbn, 
+      genre, 
+      language,
+      publicationYear, 
+      publisher, 
+      description, 
+      price, 
+      imageUrl, 
+      stockQuantity 
+    } = req.body
 
     // Check if book exists
     const book = await Book.findById(req.params.id)
@@ -124,16 +151,19 @@ router.put("/:id", isAdmin, async (req, res) => {
         author,
         isbn,
         genre,
+        language: language || 'English',
         publicationYear,
         publisher,
         description,
         price,
         imageUrl,
         stockQuantity,
+        updatedAt: Date.now()
       },
       { new: true, runValidators: true },
     )
 
+    console.log("Book updated successfully:", updatedBook._id)
     res.json(updatedBook)
   } catch (error) {
     console.error("Error updating book:", error)

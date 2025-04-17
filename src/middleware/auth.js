@@ -1,12 +1,12 @@
-// src/middleware/auth.js
+ 
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 dotenv.config();
 
-// Debugging output
+ 
 console.log("Auth middleware loaded");
 
-// Auth middleware: verifies token and adds user info to request
+ 
 const isAuthenticated = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -17,8 +17,7 @@ const isAuthenticated = async (req, res, next) => {
       console.log("No authorization header or invalid format");
       return res.status(401).json({ message: "Authentication required" });
     }
-    
-    // Extract token (assuming it's in format "Bearer TOKEN")
+     
     const token = authHeader.split(' ')[1];
     
     if (!token) {
@@ -28,15 +27,15 @@ const isAuthenticated = async (req, res, next) => {
     
     console.log("Token extracted (first 10 chars):", token.substring(0, 10) + "...");
     
-    // Verify token
+ 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_key");
     console.log("Token decoded:", { userId: decoded.userId, email: decoded.email, role: decoded.role });
     
-    // Handle the admin special case
+  
     if (decoded.role === 'admin') {
-      // For admin tokens (from admin login endpoint)
+      
       req.user = {
-        _id: decoded.userId || decoded._id || 'admin', // Add _id property for direct access
+        _id: decoded.userId || decoded._id || 'admin',  
         userId: decoded.userId || 'admin',
         email: decoded.email,
         role: 'admin'
@@ -45,8 +44,7 @@ const isAuthenticated = async (req, res, next) => {
       return next();
     }
     
-    // For regular user tokens
-    // Update the decoded user object creation:
+ 
     req.user = {
       _id: decoded.userId || decoded._id || decoded.id || decoded.sub,  
       userId: decoded.userId || decoded._id || decoded.id || decoded.sub,  
@@ -69,30 +67,28 @@ const isAuthenticated = async (req, res, next) => {
   }
 };
 
-// Client-side authentication check function
+ 
 export const checkAndRefreshAuth = (navigate) => {
   const token = localStorage.getItem('authToken');
   
   if (!token) {
-    // No token found, redirect to login
+     
     console.log('No auth token found, redirecting to login');
     navigate('/admin/login');
     return false;
   }
-  
-  // You could also add token validation here if needed
+ 
   return true;
 };
-
-// Admin middleware: checks if authenticated user is an admin
+ 
 const isAdmin = async (req, res, next) => {
   console.log("isAdmin middleware called");
   
   try {
-    // First run the authentication middleware
+    
     isAuthenticated(req, res, (err) => {
       if (err) {
-        // If authentication middleware had an error, it already sent response
+        
         return;
       }
       
@@ -177,6 +173,10 @@ const verifyRefreshToken = (token) => {
   }
 };
 
+// Export named functions for direct import
+export { isAuthenticated, isAdmin, isPremiumMember };
+
+// Also export as default for backward compatibility
 export default { 
   isAuthenticated, 
   isAdmin, 
@@ -184,5 +184,5 @@ export default {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
-  checkAndRefreshAuth  // Include the client-side function in the exports
+  checkAndRefreshAuth
 };

@@ -34,47 +34,32 @@ const Checkout = () => {
     setError(null);
     
     try {
-      // Calculate due date (14 days from now)
-      const dueDate = new Date();
-      dueDate.setDate(dueDate.getDate() + 14);
+      // Calculate rental duration (10 days)
+      const rentalDuration = 10;
       
-      // Format phone number - strip all non-numeric characters except leading +
-      const formattedPhone = currentUser.phone ? 
-        currentUser.phone.replace(/(?!^\+)[^\d]/g, '') : '';
+      // Prepare items for batch rental
+      const rentalItems = cartItems.map(item => ({
+        bookId: item._id,
+        quantity: item.quantity
+      }));
       
-      console.log("Sending phone number:", formattedPhone); // For debugging
-      
-      // Make API call to create rentals
-      const rentalPromises = cartItems.map(async (item) => {
-        const response = await fetch('/api/rentals', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({
-            book: item._id,
-            dueDate: dueDate.toISOString(),
-            quantity: item.quantity,
-            phone: formattedPhone
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to rent ${item.title}`);
-        }
-        
-        return response.json();
+      // Call the batch rental endpoint instead of individual rental endpoints
+      const response = await fetch('/api/rentals/batch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          items: rentalItems,
+          rentalDuration: rentalDuration
+        })
       });
       
-      // Use Promise.allSettled to handle partial failures
-      const results = await Promise.allSettled(rentalPromises);
+      const data = await response.json();
       
-      // Check if any request failed
-      const failedRentals = results.filter(result => result.status === 'rejected');
-      if (failedRentals.length > 0) {
-        throw new Error(`${failedRentals.length} rentals failed. ${failedRentals[0].reason.message}`);
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to process rentals');
       }
       
       // Success! Clear cart and show success message
@@ -82,9 +67,9 @@ const Checkout = () => {
       setSuccess(true);
       setLoading(false);
       
-      // After 3 seconds, redirect to rental history
+      // After 3 seconds, redirect to rental history tab in profile
       setTimeout(() => {
-        navigate('/rentals');
+        navigate('/profile', { state: { activeTab: 'rentals' } });
       }, 3000);
       
     } catch (err) {
@@ -102,11 +87,13 @@ const Checkout = () => {
           </CardHeader>
           <CardContent>
             <p className="text-center">
-              Your rental has been confirmed. An SMS has been sent to your registered phone number with rental details.
+              Your rental has been confirmed. A confirmation email has been sent to your registered email address with rental details.
             </p>
           </CardContent>
           <CardFooter className="flex justify-center">
-            <Button onClick={() => navigate('/rentals')}>View My Rentals</Button>
+            <Button onClick={() => navigate('/profile', { state: { activeTab: 'rentals' } })}>
+              View My Rentals
+            </Button>
           </CardFooter>
         </Card>
       </div>
@@ -141,17 +128,18 @@ const Checkout = () => {
           <div className="bg-blue-50 p-4 rounded-md mt-6">
             <h3 className="font-medium">Rental Terms</h3>
             <p className="text-sm mt-2">
-              Books must be returned within 14 days from checkout date. Late returns will incur additional charges.
+              Books must be returned within 10 days from checkout date. Late returns will incur additional charges.
             </p>
           </div>
           
           {currentUser && (
             <div className="mt-4">
               <p><strong>Delivery To:</strong> {currentUser.fullName}</p>
+              <p><strong>Email:</strong> {currentUser.email}</p>
               <p><strong>Contact Number:</strong> {currentUser.phone || 'No phone number provided'}</p>
               {!currentUser.phone && (
-                <p className="text-red-500 text-sm">
-                  Please update your profile with a phone number to receive rental notifications.
+                <p className="text-yellow-500 text-sm">
+                  Consider updating your profile with a phone number to receive SMS notifications.
                 </p>
               )}
             </div>

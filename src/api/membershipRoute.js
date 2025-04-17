@@ -3,9 +3,10 @@ import express from 'express';
 import mongoose from 'mongoose';
 import MembershipPlan from '../database/schema/membershipPlans.js';
 import Membership from '../database/schema/membershipSchema.js';
-import auth from '../../src/middleware/auth.js';
-import MembershipApplication from '../../src/database/schema/membershipApplicationschema.js';
+import auth from '../middleware/auth.js';
+import MembershipApplication from '../database/schema/membershipApplicationschema.js';
 const router = express.Router();
+ 
 
 // Get all active membership plans (public)
 router.get('/plans', async (req, res) => {
@@ -263,7 +264,51 @@ router.put('/admin/applications/:id/:actions', auth.isAdmin, async (req, res) =>
     // if (status === 'rejected' && rejectionReason) {
     //   application.rejectionReason = rejectionReason;
     // }
+    // Add to membershipRoute.js file
+
+// Get current user's membership details
+// Fix for your user-details endpoint in membership.js
+router.get('/user-details', auth.isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.userId;
     
+    // Find the user's active membership
+    const membership = await Membership.findOne({ 
+      userId: userId,
+      isActive: true
+    }).populate('membershipPlan');
+    
+    if (!membership) {
+      return res.status(404).json({ message: 'No active membership found' });
+    }
+    
+    // Check if membership has expired but is still marked as active
+    const now = new Date();
+    if (membership.endDate < now && membership.isActive) {
+      membership.isActive = false;
+      await membership.save();
+      
+      return res.status(404).json({ 
+        message: 'Your membership has expired',
+        expired: true
+      });
+    }
+    
+    // Reset monthly book counter if needed
+    const today = new Date();
+    const lastReset = new Date(membership.lastResetDate || membership.startDate);
+    if (today.getMonth() !== lastReset.getMonth() || today.getFullYear() !== lastReset.getFullYear()) {
+      membership.booksRentedThisMonth = 0;
+      membership.lastResetDate = today;
+      await membership.save();
+    }
+    
+    res.json(membership);
+  } catch (error) {
+    console.error('Error fetching user membership details:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
     await application.save();
     
     // If approved, create a membership for the user

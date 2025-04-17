@@ -1,25 +1,55 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { fetchDashboardStats } from '../../services/adminService';
 
 const AdminDashboard = () => {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [dashboardStats, setDashboardStats] = useState({
+    totalBooks: 0,
+    activeMembers: 0,
+    pendingApplications: 0,
+    membershipPlans: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+      
+        const stats = await fetchDashboardStats();
+        setDashboardStats(stats);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load dashboard data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, []);
+
+   
+  const stats = [
+    { title: 'Total Books', value: dashboardStats.totalBooks.toString(), icon: '📚' },
+    { title: 'Active Members', value: dashboardStats.activeMembers.toString(), icon: '👥' },
+    { title: 'Pending Applications', value: dashboardStats.pendingApplications.toString(), icon: '📝' },
+    { title: 'Membership Plans', value: dashboardStats.membershipPlans.toString(), icon: '🏆' },
+  ];
 
   const handleLogout = () => {
     logout();
     navigate('/admin/login');
   };
 
-  // Sample admin statistics
-  const stats = [
-    { title: 'Total Books', value: '0', icon: '📚' },
-    { title: 'Active Members', value: '256', icon: '👥' },
-    { title: 'Pending Applications', value: '12', icon: '📝' },
-    { title: 'Membership Plans', value: '4', icon: '🏆' },
-  ];
-
-  // Admin features
+ 
   const features = [
     { 
       title: 'Manage Books', 
@@ -46,6 +76,20 @@ const AdminDashboard = () => {
       link: '/admin/messages'
     },
   ];
+
+  
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const stats = await fetchDashboardStats();
+      setDashboardStats(stats);
+    } catch (err) {
+      setError('Failed to refresh data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -102,19 +146,52 @@ const AdminDashboard = () => {
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
         <div className="p-8">
-          <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+            <button 
+              onClick={refreshData}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded flex items-center"
+              disabled={loading}
+            >
+              <span className="mr-2">🔄</span>
+              Refresh Data
+            </button>
+          </div>
+          
+          {/* Error Message */}
+          {error && (
+            <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
+              <p>{error}</p>
+            </div>
+          )}
           
           {/* Stats Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center mb-2">
-                  <span className="text-3xl mr-2">{stat.icon}</span>
-                  <h3 className="text-xl font-semibold text-gray-700">{stat.title}</h3>
+            {loading ? (
+              // Loading skeleton for stats
+              Array(4).fill(0).map((_, index) => (
+                <div key={index} className="bg-white rounded-lg shadow p-6">
+                  <div className="animate-pulse flex space-x-4">
+                    <div className="rounded-full bg-gray-200 h-12 w-12"></div>
+                    <div className="flex-1 space-y-4 py-1">
+                      <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                      <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-              </div>
-            ))}
+              ))
+            ) : (
+              // Show stats when data is available
+              stats.map((stat, index) => (
+                <div key={index} className="bg-white rounded-lg shadow p-6">
+                  <div className="flex items-center mb-2">
+                    <span className="text-3xl mr-2">{stat.icon}</span>
+                    <h3 className="text-xl font-semibold text-gray-700">{stat.title}</h3>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
+                </div>
+              ))
+            )}
           </div>
           
           {/* Features Section */}

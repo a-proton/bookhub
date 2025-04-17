@@ -1,18 +1,17 @@
 import mongoose from 'mongoose';
-const { Schema } = mongoose;
 
-const rentalSchema = new Schema({
-  user: {
-    type: Schema.Types.ObjectId,
+const rentalSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  book: {
-    type: Schema.Types.ObjectId,
+  bookId: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Book',
     required: true
   },
-  issueDate: {
+  startDate: {
     type: Date,
     default: Date.now,
     required: true
@@ -24,26 +23,20 @@ const rentalSchema = new Schema({
   returnDate: {
     type: Date
   },
-  status: {
-    type: String,
-    enum: ['active', 'returned', 'overdue'],
-    default: 'active'
-  },
-  fineAmount: {
+  rentalPrice: {
     type: Number,
-    default: 0
+    required: true
   },
-  finePaid: {
+  isReturned: {
     type: Boolean,
     default: false
+  },
+  lateFee: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 
-// Add index for easier queries
-rentalSchema.index({ user: 1, status: 1 });
-rentalSchema.index({ book: 1, status: 1 });
-
 const Rental = mongoose.model('Rental', rentalSchema);
 
-// Export the model using ES Modules syntax
 export default Rental;
