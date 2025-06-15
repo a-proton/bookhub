@@ -1,226 +1,268 @@
-import express from "express"
-import Book from "../database/schema/bookSchema.js"
-import { isAuthenticated } from "../middleware/auth.js"
-import User from "../database/schema/userSchema.js"
-import RecommendationEngine from "../services/RecommendationEngine.js"
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import axios from 'axios';
 
-const router = express.Router()
+const RecommendationContext = createContext();
 
-/**
- * Enhanced debugging middleware for book routes
- */
-router.use((req, res, next) => {
-  console.log(`Book API Request: ${req.method} ${req.path}`, {
-    query: req.query,
-    params: req.params,
-    user: req.user ? `ID: ${req.user._id || req.user.userId}` : "Not authenticated",
-  })
-  next()
-})
+export function useRecommendations() {
+  return useContext(RecommendationContext);
+}
 
-/**
- * @route GET /api/books/trending
- * @desc Get trending books with improved error handling
- * @access Public
- */
-router.get("/api/books/trending", async (req, res) => {
-  try {
-    console.log("Fetching trending books")
-    const limit = Number.parseInt(req.query.limit) || 10
-    const userId = req.user ? req.user._id || req.user.userId : null
-    const user = userId ? await User.findById(userId) : null
+export function RecommendationProvider({ children }) {
+  const [topPicks, setTopPicks] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [refreshStatus, setRefreshStatus] = useState({
+    isRefreshed: false,
+    message: ''
+  });
+  const [error, setError] = useState(null);
 
-    // If user is authenticated, try to get personalized trending books
-    if (user) {
-      console.log(`Getting personalized trending books for user ${userId}`)
-      const trendingBooks = await RecommendationEngine.getTrendingBooks([], user)
+  // Check if recommendations need refreshing based on time
+  const shouldRefresh = useCallback(() => {
+    if (!lastRefreshed) return true;
+    
+    // Refresh if data is older than 30 minutes
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+    return lastRefreshed < thirtyMinutesAgo;
+  }, [lastRefreshed]);
 
-      if (trendingBooks && trendingBooks.length > 0) {
-        console.log(`Found ${trendingBooks.length} personalized trending books`)
-        return res.json({
-          success: true,
-          count: trendingBooks.length,
-          data: trendingBooks,
-        })
+  // Load recommendations from localStorage on initial load
+  useEffect(() => {
+    const loadCachedRecommendations = () => {
+      const cachedRecommendations = localStorage.getItem('cachedRecommendations');
+      
+      if (cachedRecommendations) {
+        try {
+          const parsed = JSON.parse(cachedRecommendations);
+          
+          // Validate the cached data structure
+          if (parsed && parsed.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+            console.log("Loaded recommendations from cache:", parsed.data);
+            // Create a new array reference to ensure state update triggers
+            setTopPicks([...parsed.data]);
+            setLastRefreshed(new Date(parsed.timestamp));
+            return true;
+          } else {
+            console.warn("Cached recommendations found but in invalid format:", parsed);
+            localStorage.removeItem('cachedRecommendations');
+          }
+        } catch (error) {
+          console.error("Error parsing cached recommendations:", error);
+          localStorage.removeItem('cachedRecommendations');
+        }
       }
+      return false;
+    };
+    
+    loadCachedRecommendations();
+  }, []);
+
+  // Fetch recommendations with optional force refresh
+  const fetchRecommendations = useCallback(async (options = {}) => {
+    const { force = false, signal } = options;
+    
+    console.log("fetchRecommendations called, force:", force);
+    console.log("Current state - topPicks length:", topPicks?.length || 0);
+    console.log("Should refresh:", shouldRefresh());
+    
+    // Clear any previous errors
+    setError(null);
+    
+    // Check if we should use cached data
+    if (!force && !shouldRefresh() && topPicks && topPicks.length > 0) {
+      console.log("Using cached recommendations, count:", topPicks.length);
+      return [...topPicks]; // Return a new array reference
     }
-
-    // Fallback to general trending books
-    console.log("Getting general trending books")
-    const trendingBooks = await Book.find({
-      stockQuantity: { $gt: 0 },
-    })
-      .sort({ rating: -1, publicationYear: -1 })
-      .limit(limit)
-
-    // If still no books, try with even more relaxed criteria
-    if (trendingBooks.length === 0) {
-      console.log("No trending books found with initial criteria, using fallback")
-      const fallbackBooks = await Book.find({
-        stockQuantity: { $gt: 0 },
-      })
-        .sort({ createdAt: -1 })
-        .limit(limit)
-
-      console.log(`Found ${fallbackBooks.length} fallback trending books`)
-
-      return res.json({
-        success: true,
-        count: fallbackBooks.length,
-        data: fallbackBooks,
-      })
-    }
-
-    console.log(`Found ${trendingBooks.length} trending books`)
-
-    res.json({
-      success: true,
-      count: trendingBooks.length,
-      data: trendingBooks,
-    })
-  } catch (error) {
-    console.error("Error fetching trending books:", error)
-    // Return empty array instead of error
-    res.json({
-      success: false,
-      count: 0,
-      data: [],
-      message: "Failed to get trending books",
-      error: error.message,
-    })
-  }
-})
-
-/**
- * @route GET /api/books/recommendations
- * @desc Get personalized book recommendations for the authenticated user
- * @access Private
- */
-router.get("/api/books/recommendations", isAuthenticated, async (req, res) => {
-  try {
-    const userId = req.user._id || req.user.userId
-    const limit = Number.parseInt(req.query.limit) || 10
-    const excludeIds = req.query.exclude ? req.query.exclude.split(",") : []
-    const genre = req.query.genre || null
-
-    console.log(`Fetching recommendations for user ${userId} with limit ${limit}`)
-
-    // Get recommendations from the engine
-    let recommendations
-
-    if (genre) {
-      // If genre is specified, filter recommendations by genre
-      recommendations = await Book.find({
-        genre: { $regex: new RegExp(genre, "i") },
-        stockQuantity: { $gt: 0 },
-        _id: { $nin: excludeIds },
-      }).limit(limit)
-    } else {
-      // Otherwise get personalized recommendations
-      recommendations = await RecommendationEngine.getRecommendationsForUser(userId, {
-        limit,
-        excludeBookIds: excludeIds,
-        includeTrending: true,
-      })
-    }
-
-    res.json({
-      success: true,
-      count: recommendations.length,
-      data: recommendations,
-    })
-  } catch (error) {
-    console.error("Error fetching recommendations:", error)
-    res.status(500).json({
-      success: false,
-      message: "Failed to get recommendations",
-      error: error.message,
-      data: [], // Include empty data array for consistent frontend handling
-    })
-  }
-})
-
-/**
- * @route GET /api/books/new-arrivals
- * @desc Get new book arrivals, personalized if authenticated
- * @access Public (but personalizes if authenticated)
- */
-router.get("/api/books/new-arrivals", async (req, res) => {
-  try {
-    const limit = Number.parseInt(req.query.limit) || 10
-
-    // Check if user is authenticated
-    const userId = req.user ? req.user._id || req.user.userId : null
-    let newArrivals
-
-    if (userId) {
-      // If user is authenticated, get personalized new arrivals
-      newArrivals = await RecommendationEngine.getNewReleaseRecommendations(userId, limit)
-    } else {
-      // Otherwise, get general new arrivals
-      const currentYear = new Date().getFullYear()
-      newArrivals = await Book.find({
-        publicationYear: { $gte: currentYear - 1 },
-        stockQuantity: { $gt: 0 },
-      })
-        .sort({ publicationYear: -1 })
-        .limit(limit)
-
-      // If no new books found, just get the most recently added books
-      if (newArrivals.length === 0) {
-        newArrivals = await Book.find({
-          stockQuantity: { $gt: 0 },
-        })
-          .sort({ createdAt: -1 })
-          .limit(limit)
+    
+    setIsLoading(true);
+    try {
+      // Get the auth token
+      const token = localStorage.getItem('token');
+      console.log("Auth token available:", !!token);
+      
+      // First try the recommendations endpoint
+      try {
+        console.log("Fetching from recommendations endpoint...");
+        const response = await axios.get('/api/books/recommendations', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: signal
+        });
+        
+        console.log("Raw response data:", response.data);
+        
+        // Check if we got data in the expected format
+        if (response.data && response.data.data && Array.isArray(response.data.data)) {
+          console.log("Successfully received recommendations. Count:", response.data.data.length);
+          
+          // Important: Make sure we're setting an array, not another data type
+          const recommendationsArray = [...response.data.data];
+          setTopPicks(recommendationsArray);
+          
+          const now = new Date();
+          setLastRefreshed(now);
+          
+          // Cache the recommendations
+          localStorage.setItem('cachedRecommendations', JSON.stringify({
+            data: recommendationsArray,
+            timestamp: now.toISOString()
+          }));
+          
+          setRefreshStatus({
+            isRefreshed: true,
+            message: 'Recommendations updated!'
+          });
+          
+          // Reset status after 3 seconds
+          setTimeout(() => {
+            setRefreshStatus({
+              isRefreshed: false,
+              message: ''
+            });
+          }, 3000);
+          
+          return recommendationsArray;
+        } else {
+          console.warn("Invalid response format:", response.data);
+          throw new Error("Invalid response format or empty recommendations");
+        }
+      } catch (recommendationsError) {
+        console.warn("Failed to get recommendations, trying trending instead:", recommendationsError);
+        
+        // Fall back to trending endpoint
+        console.log("Fetching from trending endpoint...");
+        const trendingResponse = await axios.get('/api/books/trending', {
+          signal: signal
+        });
+        
+        console.log("Trending response data:", trendingResponse.data);
+        
+        if (trendingResponse.data && trendingResponse.data.data && Array.isArray(trendingResponse.data.data) && trendingResponse.data.data.length > 0) {
+          console.log("Using trending books as fallback. Count:", trendingResponse.data.data.length);
+          
+          // Again, ensure we're setting a proper array
+          const trendingArray = [...trendingResponse.data.data];
+          setTopPicks(trendingArray);
+          
+          const now = new Date();
+          setLastRefreshed(now);
+          
+          // Cache the trending books as fallback
+          localStorage.setItem('cachedRecommendations', JSON.stringify({
+            data: trendingArray,
+            timestamp: now.toISOString()
+          }));
+          
+          return trendingArray;
+        } else {
+          console.warn("Invalid trending response format:", trendingResponse.data);
+          throw new Error("No trending books found either");
+        }
       }
+    } catch (error) {
+      // Ignore aborted requests
+      if (error.name === 'CanceledError' || error.name === 'AbortError') {
+        console.log("Request was canceled");
+        return [...topPicks]; // Return a new array reference
+      }
+      
+      console.error("Error fetching recommendations:", error);
+      
+      // Store the error for UI feedback
+      setError(error.message || "Failed to fetch recommendations");
+      
+      setRefreshStatus({
+        isRefreshed: false,
+        message: 'Failed to update recommendations'
+      });
+      
+      // If we have cached data, still return it despite the error
+      if (topPicks && topPicks.length > 0) {
+        console.log("Returning existing topPicks despite error:", topPicks);
+        return [...topPicks]; // Return a new array reference
+      }
+      
+      // Try to load from cache one more time
+      const cachedRecommendations = localStorage.getItem('cachedRecommendations');
+      if (cachedRecommendations) {
+        try {
+          const parsed = JSON.parse(cachedRecommendations);
+          if (parsed && parsed.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+            console.log("Using cached recommendations after error:", parsed.data);
+            // Don't update state here, just return the data
+            return [...parsed.data];
+          }
+        } catch (cacheError) {
+          console.error("Error parsing cached recommendations during error recovery:", cacheError);
+        }
+      }
+      
+      return []; // Return empty array if all else fails
+    } finally {
+      setIsLoading(false);
+      console.log("Recommendations loading:", false);
+      console.log("Final topPicks state:", topPicks);
     }
+  }, [topPicks, lastRefreshed, shouldRefresh]);
+  
+  // Manual refresh trigger for recommendation refresh API endpoint
+  const triggerRecommendationRefresh = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn("No token available for recommendation refresh");
+        setError("Authentication required to refresh recommendations");
+        return;
+      }
+      
+      setIsLoading(true);
+      console.log("Triggering recommendation refresh on backend...");
+      
+      const response = await axios.post('/api/books/refresh-recommendations', {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      console.log("Refresh trigger response:", response.data);
+      
+      // After backend refreshes recommendations, fetch the new ones
+      const newRecommendations = await fetchRecommendations({ force: true });
+      
+      return newRecommendations;
+    } catch (error) {
+      console.error("Error triggering recommendation refresh:", error);
+      setError(error.message || "Failed to trigger recommendation refresh");
+      
+      // Even if refresh fails, try to fetch existing recommendations
+      await fetchRecommendations({ force: true });
+      
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchRecommendations]);
+  
+  // Reset local cached recommendations when user logs out
+  const clearRecommendations = useCallback(() => {
+    setTopPicks([]);
+    setLastRefreshed(null);
+    setError(null);
+    localStorage.removeItem('cachedRecommendations');
+    console.log("Recommendations cleared");
+  }, []);
 
-    res.json({
-      success: true,
-      count: newArrivals.length,
-      data: newArrivals,
-    })
-  } catch (error) {
-    console.error("Error fetching new arrivals:", error)
-    res.status(500).json({
-      success: false,
-      message: "Failed to get new arrivals",
-      error: error.message,
-      data: [], // Include empty data array for consistent frontend handling
-    })
-  }
-})
+  const value = {
+    topPicks,
+    isLoading,
+    lastRefreshed,
+    refreshStatus,
+    error,
+    fetchRecommendations,
+    triggerRecommendationRefresh,
+    clearRecommendations
+  };
 
-/**
- * @route GET /api/books/because-you-like/:bookId
- * @desc Get recommendations based on a specific book
- * @access Public (but personalizes if authenticated)
- */
-router.get("/api/books/because-you-like/:bookId", async (req, res) => {
-  try {
-    const { bookId } = req.params
-    const limit = Number.parseInt(req.query.limit) || 5
-
-    // Get user if authenticated
-    const userId = req.user ? req.user._id || req.user.userId : null
-
-    const recommendations = await RecommendationEngine.getBecauseYouLikeRecommendations(bookId, userId, limit)
-
-    res.json({
-      success: true,
-      count: recommendations.length,
-      data: recommendations,
-    })
-  } catch (error) {
-    console.error("Error fetching similar books:", error)
-    res.status(500).json({
-      success: false,
-      message: "Failed to get similar books",
-      error: error.message,
-      data: [], 
-    })
-  }
-})
-
-export default router
+  return (
+    <RecommendationContext.Provider value={value}>
+      {children}
+    </RecommendationContext.Provider>
+  );
+}

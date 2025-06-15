@@ -21,8 +21,6 @@ const AdminDashboard = () => {
       try {
         setLoading(true);
         setError(null);
-        
-      
         const stats = await fetchDashboardStats();
         setDashboardStats(stats);
       } catch (err) {
@@ -32,7 +30,6 @@ const AdminDashboard = () => {
         setLoading(false);
       }
     };
-
     loadDashboardData();
   }, []);
 
