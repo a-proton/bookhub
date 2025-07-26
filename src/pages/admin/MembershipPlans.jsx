@@ -45,7 +45,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const MembershipPlansPage = () => {
   const [plans, setPlans] = useState([]);
@@ -75,7 +75,7 @@ const MembershipPlansPage = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_URL}/membership/admin/plans`, {
+      const response = await axios.get(`${API_URL}/memberships/admin/plans`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -94,7 +94,7 @@ const MembershipPlansPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
-    
+
     if (type === "number") {
       setFormData({
         ...formData,
@@ -179,12 +179,15 @@ const MembershipPlansPage = () => {
 
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`${API_URL}/membership/admin/plans/${planToDelete._id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      
+      await axios.delete(
+        `${API_URL}/membership/admin/plans/${planToDelete._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
       // Refresh plans after deletion
       fetchMembershipPlans();
       setShowDeleteDialog(false);
@@ -200,28 +203,28 @@ const MembershipPlansPage = () => {
       setError("Please fill in all required fields");
       return false;
     }
-    
+
     if (formData.pricePerMonth <= 0) {
       setError("Price must be greater than zero");
       return false;
     }
-    
+
     if (formData.maxBooksPerMonth < 1) {
       setError("Max books must be at least 1");
       return false;
     }
-    
+
     if (formData.durationDays < 1) {
       setError("Duration days must be at least 1");
       return false;
     }
-    
+
     return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -231,7 +234,7 @@ const MembershipPlansPage = () => {
       // Filter out empty benefits
       const dataToSubmit = {
         ...formData,
-        benefits: formData.benefits.filter(benefit => benefit.trim() !== "")
+        benefits: formData.benefits.filter((benefit) => benefit.trim() !== ""),
       };
 
       if (isEditing) {
@@ -268,10 +271,12 @@ const MembershipPlansPage = () => {
       <div className="container mx-auto py-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold">Membership Plans</h1>
-          <Button onClick={() => {
-            resetForm();
-            setShowPlanForm(true);
-          }}>
+          <Button
+            onClick={() => {
+              resetForm();
+              setShowPlanForm(true);
+            }}
+          >
             <Plus className="mr-2 h-4 w-4" /> Add New Plan
           </Button>
         </div>
@@ -288,7 +293,8 @@ const MembershipPlansPage = () => {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-10 text-gray-500">
-                No membership plans found. Create your first plan to get started.
+                No membership plans found. Create your first plan to get
+                started.
               </div>
             </CardContent>
           </Card>
@@ -310,9 +316,12 @@ const MembershipPlansPage = () => {
                   <TableBody>
                     {plans.map((plan) => (
                       <TableRow key={plan._id}>
-                        <TableCell className="font-medium">{plan.name}</TableCell>
+                        <TableCell className="font-medium">
+                          {plan.name}
+                        </TableCell>
                         <TableCell>
-                          {plan.currency}{plan.pricePerMonth}/month
+                          {plan.currency}
+                          {plan.pricePerMonth}/month
                         </TableCell>
                         <TableCell>{plan.maxBooksPerMonth}</TableCell>
                         <TableCell>{plan.durationDays} days</TableCell>
@@ -420,7 +429,9 @@ const MembershipPlansPage = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="maxBooksPerMonth">Max Books At Once *</Label>
+                    <Label htmlFor="maxBooksPerMonth">
+                      Max Books At Once *
+                    </Label>
                     <Input
                       id="maxBooksPerMonth"
                       name="maxBooksPerMonth"
@@ -433,7 +444,9 @@ const MembershipPlansPage = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="durationDays">Borrow Duration (Days) *</Label>
+                    <Label htmlFor="durationDays">
+                      Borrow Duration (Days) *
+                    </Label>
                     <Input
                       id="durationDays"
                       name="durationDays"
@@ -486,15 +499,21 @@ const MembershipPlansPage = () => {
                     checked={formData.isActive}
                     onCheckedChange={handleSwitchChange}
                   />
-                  <Label htmlFor="isActive">Activate this plan immediately</Label>
+                  <Label htmlFor="isActive">
+                    Activate this plan immediately
+                  </Label>
                 </div>
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => {
-                  resetForm();
-                  setShowPlanForm(false);
-                }}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    resetForm();
+                    setShowPlanForm(false);
+                  }}
+                >
                   Cancel
                 </Button>
                 <Button type="submit">
@@ -506,22 +525,23 @@ const MembershipPlansPage = () => {
         </Dialog>
 
         {/* Delete Confirmation Dialog */}
-        <AlertDialog
-          open={showDeleteDialog}
-          onOpenChange={setShowDeleteDialog}
-        >
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Membership Plan</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to delete the "{planToDelete?.name}" plan? This action cannot be undone.
+                Are you sure you want to delete the "{planToDelete?.name}" plan?
+                This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel onClick={() => setPlanToDelete(null)}>
                 Cancel
               </AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeletePlan} className="bg-red-600 hover:bg-red-700">
+              <AlertDialogAction
+                onClick={confirmDeletePlan}
+                className="bg-red-600 hover:bg-red-700"
+              >
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>

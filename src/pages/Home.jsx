@@ -1,10 +1,19 @@
-"use client"
+"use client";
 
-import { useEffect, useState, useCallback, useRef } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { ChevronRight, TrendingUp, Sparkles, BookOpen, Coins, Users, Globe, RefreshCw } from "lucide-react"
-import { useCart } from "../contexts/CartContext"
-import { useRecommendations } from "../contexts/RecommendationContext"
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ChevronRight,
+  TrendingUp,
+  Sparkles,
+  BookOpen,
+  Coins,
+  Users,
+  Globe,
+  RefreshCw,
+} from "lucide-react";
+import { useCart } from "../contexts/CartContext";
+import { useRecommendations } from "../contexts/RecommendationContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,17 +22,28 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import axios from "axios"
-import { formatDistanceToNow } from "date-fns"
+} from "@/components/ui/alert-dialog";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import axios from "axios";
+import { formatDistanceToNow } from "date-fns";
 
 const Home = () => {
-  const navigate = useNavigate()
-  const { addToCart } = useCart()
+  const navigate = useNavigate();
+  const { addToCart } = useCart();
 
   // Get recommendations from context
   const {
@@ -34,120 +54,120 @@ const Home = () => {
     lastRefreshed,
     refreshStatus,
     isPersonalized,
-  } = useRecommendations()
+  } = useRecommendations();
 
-  const [api, setApi] = useState()
-  const [showAlert, setShowAlert] = useState(false)
-  const [alertMessage, setAlertMessage] = useState("")
-  const [newArrivals, setNewArrivals] = useState([])
+  const [api, setApi] = useState();
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [newArrivals, setNewArrivals] = useState([]);
 
   // CRITICAL FIX: Use a ref to track if we've already fetched data
-  const initialFetchDone = useRef(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [refreshing, setRefreshing] = useState(false)
+  const initialFetchDone = useRef(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // CRITICAL FIX: Use a ref to store topPicks instead of state to prevent re-renders
-  const topPicksRef = useRef([])
+  const topPicksRef = useRef([]);
 
   // Format the last refreshed time
   const formattedLastRefreshed = lastRefreshed
     ? formatDistanceToNow(new Date(lastRefreshed), { addSuffix: true })
-    : "never"
+    : "never";
 
   // Update ref when context changes
   useEffect(() => {
     if (contextTopPicks && contextTopPicks.length > 0) {
-      topPicksRef.current = contextTopPicks
+      topPicksRef.current = contextTopPicks;
     }
-  }, [contextTopPicks])
+  }, [contextTopPicks]);
 
   useEffect(() => {
-    if (!api) return
+    if (!api) return;
     const intervalId = setInterval(() => {
-      api.scrollNext()
-    }, 5000)
-    return () => clearInterval(intervalId)
-  }, [api])
+      api.scrollNext();
+    }, 5000);
+    return () => clearInterval(intervalId);
+  }, [api]);
 
   // Fetch books from the database - CRITICAL FIX: Only run once on mount
   useEffect(() => {
     // Skip if we've already fetched
-    if (initialFetchDone.current) return
+    if (initialFetchDone.current) return;
 
-    const controller = new AbortController()
+    const controller = new AbortController();
 
     const fetchBooks = async () => {
-      setIsLoading(true)
+      setIsLoading(true);
       try {
         // Fetch new arrivals
         const newArrivalsResponse = await axios.get("/api/books/new-arrivals", {
           signal: controller.signal,
-        })
-        setNewArrivals(newArrivalsResponse.data)
+        });
+        setNewArrivals(newArrivalsResponse.data);
 
         // Check authentication status
-        const token = localStorage.getItem("token")
+        const token = localStorage.getItem("token");
 
         // Only fetch recommendations if we don't already have them
         if (contextTopPicks.length === 0) {
           await fetchRecommendations({
             signal: controller.signal,
-          })
+          });
         }
 
-        initialFetchDone.current = true
-        setIsLoading(false)
+        initialFetchDone.current = true;
+        setIsLoading(false);
       } catch (err) {
         if (err.name !== "CanceledError" && err.name !== "AbortError") {
-          console.error("Error fetching books:", err)
-          setError("Failed to load books. Please try again later.")
-          setIsLoading(false)
+          console.error("Error fetching books:", err);
+          setError("Failed to load books. Please try again later.");
+          setIsLoading(false);
         }
       }
-    }
+    };
 
-    fetchBooks()
+    fetchBooks();
 
     return () => {
-      controller.abort() // Cleanup on unmount
-    }
-  }, []) // CRITICAL FIX: Empty dependency array - only run on mount
+      controller.abort(); // Cleanup on unmount
+    };
+  }, []); // CRITICAL FIX: Empty dependency array - only run on mount
 
   // Handle manual recommendation refresh
   const handleRefreshRecommendations = useCallback(async () => {
-    setRefreshing(true)
+    setRefreshing(true);
     try {
       // Check if user is logged in
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("token");
       if (!token) {
-        setAlertMessage("Login required for personalized recommendations")
-        setShowAlert(true)
+        setAlertMessage("Login required for personalized recommendations");
+        setShowAlert(true);
 
         // Still fetch recommendations, but they won't be personalized
-        await fetchRecommendations({ force: true })
-        return
+        await fetchRecommendations({ force: true });
+        return;
       }
 
-      await triggerRecommendationRefresh()
+      await triggerRecommendationRefresh();
     } catch (error) {
-      console.error("Failed to refresh recommendations:", error)
-      setAlertMessage("Failed to refresh recommendations. Please try again.")
-      setShowAlert(true)
+      console.error("Failed to refresh recommendations:", error);
+      setAlertMessage("Failed to refresh recommendations. Please try again.");
+      setShowAlert(true);
     } finally {
-      setRefreshing(false)
+      setRefreshing(false);
     }
-  }, [triggerRecommendationRefresh, fetchRecommendations])
+  }, [triggerRecommendationRefresh, fetchRecommendations]);
 
   const handleAddToCart = (book) => {
-    addToCart(book)
-    setAlertMessage("Item has been added to your cart successfully.")
-    setShowAlert(true)
+    addToCart(book);
+    setAlertMessage("Item has been added to your cart successfully.");
+    setShowAlert(true);
     setTimeout(() => {
-      setShowAlert(false)
-      navigate("/BookList")
-    }, 1500)
-  }
+      setShowAlert(false);
+      navigate("/BookList");
+    }, 1500);
+  };
 
   const handleRentBook = (book) => {
     try {
@@ -157,22 +177,22 @@ const Home = () => {
         isRental: true,
         rentalPrice: book.price * 0.3, // 30% of purchase price
         rentalDuration: "14 days",
-      })
+      });
 
-      setAlertMessage("Book rental added to cart! Redirecting to checkout...")
-      setShowAlert(true)
+      setAlertMessage("Book rental added to cart! Redirecting to checkout...");
+      setShowAlert(true);
 
       // Navigate directly to checkout after a short delay
       setTimeout(() => {
-        setShowAlert(false)
-        navigate("/checkout") // Navigate to checkout instead of BookList
-      }, 1500)
+        setShowAlert(false);
+        navigate("/checkout"); // Navigate to checkout instead of BookList
+      }, 1500);
     } catch (err) {
-      console.error("Error adding rental to cart:", err)
-      setAlertMessage("Error adding rental to cart. Please try again.")
-      setShowAlert(true)
+      console.error("Error adding rental to cart:", err);
+      setAlertMessage("Error adding rental to cart. Please try again.");
+      setShowAlert(true);
     }
-  }
+  };
 
   const carouselItems = [
     {
@@ -235,7 +255,7 @@ const Home = () => {
       buttonText: "Browse Books",
       buttonLink: "/BookList",
     },
-  ]
+  ];
 
   // Updated BookSection component with personalization indicator for Top Picks
   const BookSection = ({
@@ -249,7 +269,7 @@ const Home = () => {
     refreshing = false,
     lastRefreshed = null,
   }) => {
-    const [showDebug, setShowDebug] = useState(false)
+    const [showDebug, setShowDebug] = useState(false);
 
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -262,7 +282,9 @@ const Home = () => {
             {title === "Top Picks" && (
               <span
                 className={`ml-2 text-xs px-2 py-1 rounded-full ${
-                  isPersonalized ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
+                  isPersonalized
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-100 text-gray-800"
                 }`}
               >
                 {isPersonalized ? "Personalized" : "General"}
@@ -274,15 +296,31 @@ const Home = () => {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="sm" className="ml-2" onClick={onRefresh} disabled={refreshing}>
-                      <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-2"
+                      onClick={onRefresh}
+                      disabled={refreshing}
+                    >
+                      <RefreshCw
+                        className={`h-4 w-4 ${
+                          refreshing ? "animate-spin" : ""
+                        }`}
+                      />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>Refresh recommendations</p>
-                    {lastRefreshed && <p className="text-xs text-gray-500">Last updated: {formattedLastRefreshed}</p>}
+                    {lastRefreshed && (
+                      <p className="text-xs text-gray-500">
+                        Last updated: {formattedLastRefreshed}
+                      </p>
+                    )}
                     {!isPersonalized && (
-                      <p className="text-xs text-yellow-500">Login for personalized recommendations!</p>
+                      <p className="text-xs text-yellow-500">
+                        Login for personalized recommendations!
+                      </p>
                     )}
                   </TooltipContent>
                 </Tooltip>
@@ -292,7 +330,10 @@ const Home = () => {
 
           {/* Debug toggle */}
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowDebug(!showDebug)} className="text-xs text-gray-400 hover:text-gray-600">
+            <button
+              onClick={() => setShowDebug(!showDebug)}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
               {showDebug ? "Hide Debug" : "Debug"}
             </button>
           </div>
@@ -313,13 +354,17 @@ const Home = () => {
         ) : error ? (
           <div className="text-center text-red-500 py-8">{error}</div>
         ) : sectionBooks.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">No books available at the moment.</div>
+          <div className="text-center text-gray-500 py-8">
+            No books available at the moment.
+          </div>
         ) : (
           <>
             {/* Books grid with highlight animation on refresh */}
             <div
               className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 transition-all duration-500 ${
-                title === "Top Picks" && refreshStatus?.isRefreshed ? "bg-green-50 p-4 rounded-lg" : ""
+                title === "Top Picks" && refreshStatus?.isRefreshed
+                  ? "bg-green-50 p-4 rounded-lg"
+                  : ""
               }`}
             >
               {sectionBooks.map((book) => (
@@ -333,7 +378,7 @@ const Home = () => {
                       alt={book.title}
                       className="w-full h-48 object-cover"
                       onError={(e) => {
-                        e.target.src = "/api/placeholder/200/300"
+                        e.target.src = "/placeholder/200/300";
                       }}
                     />
 
@@ -354,8 +399,12 @@ const Home = () => {
                   </div>
 
                   <div className="p-4">
-                    <h3 className="text-lg font-semibold mb-2 truncate">{book.title}</h3>
-                    <p className="text-gray-600 mb-2 text-sm truncate">{book.author}</p>
+                    <h3 className="text-lg font-semibold mb-2 truncate">
+                      {book.title}
+                    </h3>
+                    <p className="text-gray-600 mb-2 text-sm truncate">
+                      {book.author}
+                    </p>
 
                     {/* Language and Genre Info */}
                     {(book.language || book.genre) && (
@@ -376,10 +425,14 @@ const Home = () => {
                     )}
 
                     <div className="flex items-center justify-between mb-4">
-                      <span className="text-blue-500 font-bold">Rs.{book.price}</span>
+                      <span className="text-blue-500 font-bold">
+                        Rs.{book.price}
+                      </span>
                       <div className="flex items-center">
                         <span className="text-yellow-400">★</span>
-                        <span className="ml-1 text-gray-600">{book.rating}</span>
+                        <span className="ml-1 text-gray-600">
+                          {book.rating}
+                        </span>
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
@@ -389,7 +442,9 @@ const Home = () => {
                         onClick={() => handleAddToCart(book)}
                         disabled={book.stockQuantity <= 0}
                       >
-                        {book.stockQuantity > 0 ? "Add to Cart" : "Out of Stock"}
+                        {book.stockQuantity > 0
+                          ? "Add to Cart"
+                          : "Out of Stock"}
                       </Button>
                       <Button
                         variant="secondary"
@@ -412,8 +467,12 @@ const Home = () => {
                 <p className="mb-2">Book count: {sectionBooks.length}</p>
                 {title === "Top Picks" && (
                   <>
-                    <p className="mb-2">Last refreshed: {formattedLastRefreshed}</p>
-                    <p className="mb-2">Personalized: {isPersonalized ? "Yes" : "No"}</p>
+                    <p className="mb-2">
+                      Last refreshed: {formattedLastRefreshed}
+                    </p>
+                    <p className="mb-2">
+                      Personalized: {isPersonalized ? "Yes" : "No"}
+                    </p>
                   </>
                 )}
                 <div className="overflow-x-auto">
@@ -428,7 +487,12 @@ const Home = () => {
                     </thead>
                     <tbody>
                       {sectionBooks.map((book, index) => (
-                        <tr key={book._id || book.id} className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                        <tr
+                          key={book._id || book.id}
+                          className={
+                            index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                          }
+                        >
                           <td className="p-2">{book.title}</td>
                           <td className="p-2">{book.language || "N/A"}</td>
                           <td className="p-2">{book.genre || "N/A"}</td>
@@ -458,8 +522,8 @@ const Home = () => {
           </>
         )}
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div className="min-h-screen">
@@ -480,11 +544,26 @@ const Home = () => {
                     <div className="py-8">
                       <div className="flex items-center justify-between h-[350px]">
                         <div className="w-1/2 pr-8">
-                          <h3 className={`text-xl font-normal mb-2 ${item.textColor}`}>{item.subtitle}</h3>
-                          <h2 className={`text-4xl font-bold mb-4 ${item.textColor}`}>{item.title}</h2>
-                          {item.description && <p className="text-gray-600 mb-4 leading-relaxed">{item.description}</p>}
+                          <h3
+                            className={`text-xl font-normal mb-2 ${item.textColor}`}
+                          >
+                            {item.subtitle}
+                          </h3>
+                          <h2
+                            className={`text-4xl font-bold mb-4 ${item.textColor}`}
+                          >
+                            {item.title}
+                          </h2>
+                          {item.description && (
+                            <p className="text-gray-600 mb-4 leading-relaxed">
+                              {item.description}
+                            </p>
+                          )}
                           <Link to={item.buttonLink}>
-                            <Button variant={item.buttonVariant} className="mt-4">
+                            <Button
+                              variant={item.buttonVariant}
+                              className="mt-4"
+                            >
                               {item.buttonText}
                               <ChevronRight className="ml-2 h-4 w-4" />
                             </Button>
@@ -540,9 +619,11 @@ const Home = () => {
             <CardContent className="p-8">
               <div className="space-y-6">
                 <p className="text-lg text-gray-700 leading-relaxed italic">
-                  Welcome to BookHub, your premier destination for book rentals. We offer a diverse collection spanning
-                  fiction, non-fiction, academic texts, and self-help books. Our mission is simple: make reading
-                  accessible and affordable for everyone through competitive rental prices.
+                  Welcome to BookHub, your premier destination for book rentals.
+                  We offer a diverse collection spanning fiction, non-fiction,
+                  academic texts, and self-help books. Our mission is simple:
+                  make reading accessible and affordable for everyone through
+                  competitive rental prices.
                 </p>
 
                 <div className="grid md:grid-cols-3 gap-8 mt-12">
@@ -550,30 +631,43 @@ const Home = () => {
                     <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <BookOpen className="w-8 h-8 text-indigo-600" />
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">Vast Collection</h3>
-                    <p className="text-gray-600">Access thousands of books across multiple genres</p>
+                    <h3 className="text-xl font-semibold mb-2">
+                      Vast Collection
+                    </h3>
+                    <p className="text-gray-600">
+                      Access thousands of books across multiple genres
+                    </p>
                   </div>
 
                   <div className="text-center p-4">
                     <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Coins className="w-8 h-8 text-indigo-600" />
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">Affordable Prices</h3>
-                    <p className="text-gray-600">Competitive rental rates for every budget</p>
+                    <h3 className="text-xl font-semibold mb-2">
+                      Affordable Prices
+                    </h3>
+                    <p className="text-gray-600">
+                      Competitive rental rates for every budget
+                    </p>
                   </div>
 
                   <div className="text-center p-4">
                     <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Users className="w-8 h-8 text-indigo-600" />
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">Community Focus</h3>
-                    <p className="text-gray-600">Join readers who share your passion for books</p>
+                    <h3 className="text-xl font-semibold mb-2">
+                      Community Focus
+                    </h3>
+                    <p className="text-gray-600">
+                      Join readers who share your passion for books
+                    </p>
                   </div>
                 </div>
 
                 <div className="text-center mt-12">
                   <p className="text-lg text-gray-700 italic">
-                    Join our community and discover the joy of reading without commitment.
+                    Join our community and discover the joy of reading without
+                    commitment.
                   </p>
                 </div>
               </div>
@@ -594,7 +688,7 @@ const Home = () => {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
-}
+  );
+};
 
-export default Home
+export default Home;

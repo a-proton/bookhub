@@ -1,1045 +1,516 @@
-"use client"
+import React, { createContext, useState, useEffect, useContext } from "react";
+import axios from "axios";
 
-import { createContext, useState, useEffect, useContext } from "react"
-import axios from "axios"
+// AXIOS INSTANCE with proper token handling
+export const api = axios.create({
+  baseURL: "/api",
+});
 
-// Create API URL based on environment - ensure consistent formatting
-const API_URL =
-  process.env.REACT_APP_API_URL || (process.env.NODE_ENV === "production" ? "/api" : "http://localhost:5000/api")
+// Create the context
+const AuthContext = createContext(null);
 
-// Create an axios instance with base URL for consistency
-const api = axios.create({
-  baseURL: API_URL,
-  withCredentials: true,
-})
-
-// Add request interceptor to inject token with every request
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token")
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => Promise.reject(error),
-)
-
-// Add response interceptor to handle token refresh
-api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config
-
-    // If error is 401 (Unauthorized) and not already retrying
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
-
-      try {
-        // Try to refresh the token
-        const refreshed = await refreshTokenFunction()
-
-        if (refreshed) {
-          // If token refresh was successful, retry the original request
-          originalRequest.headers.Authorization = `Bearer ${localStorage.getItem("token")}`
-          return api(originalRequest)
-        }
-      } catch (refreshError) {
-        console.error("Token refresh failed:", refreshError)
-      }
-    }
-
-    return Promise.reject(error)
-  },
-)
-
-// This will be set by the AuthProvider
-let refreshTokenFunction = async () => false
-
-const AuthContext = createContext()
-
+// Custom hook to easily access the context
 export const useAuth = () => {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider")
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  return context
-}
+  return context;
+};
 
+// The main provider component that will wrap the application
 export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null)
-  const [userPreferences, setUserPreferences] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [userMembership, setUserMembership] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Check if token is expired by decoding JWT
-  const isTokenExpired = (token) => {
-    try {
-      const tokenParts = token.split(".")
-      if (tokenParts.length !== 3) return true
+  // Helper function to get the active token
+  const getActiveToken = () => {
+    return (
+      localStorage.getItem("adminToken") ||
+      localStorage.getItem("authToken") ||
+      localStorage.getItem("token")
+    );
+  };
 
-      const payload = JSON.parse(atob(tokenParts[1]))
-      const currentTime = Math.floor(Date.now() / 1000)
+  // Helper function to get active user data
+  const getActiveUser = () => {
+    const adminUser = localStorage.getItem("adminUser");
+    const regularUser = localStorage.getItem("user");
 
-      // Check if token has expired
-      if (payload.exp && payload.exp < currentTime) {
-        console.log("Token expired")
-        return true
-      }
-      return false
-    } catch (e) {
-      console.error("Error checking token expiration:", e)
-      return true // If we can't check, better to assume expired
-    }
-  }
-
-  // More reliable checkAuthStatus function
-  const checkAuthStatus = async () => {
-    setLoading(true)
-    try {
-      const token = localStorage.getItem("token")
-      const userData = localStorage.getItem("user")
-
-      // No token means not authenticated
-      if (!token) {
-        console.log("No token found in localStorage, user is not authenticated")
-        setIsAuthenticated(false)
-        setCurrentUser(null)
-        setUserPreferences(null)
-        setLoading(false)
-        return
-      }
-
-      // If we have both token and user data, consider user authenticated immediately
-      if (userData) {
-        try {
-          const parsedUser = JSON.parse(userData)
-          console.log("User data found in localStorage:", parsedUser)
-          setCurrentUser(parsedUser)
-          setIsAuthenticated(true)
-
-          // Extract user preferences from the user data
-          if (parsedUser) {
-            const preferences = {
-              age: parsedUser.age,
-              gender: parsedUser.gender,
-              location: parsedUser.location,
-              preferredLanguages: parsedUser.preferredLanguages || [],
-              favoriteGenres: parsedUser.favoriteGenres || [],
-              preferredBookFormat: parsedUser.preferredBookFormat,
-              rentalPreferences: parsedUser.rentalPreferences || {
-                booksPerMonth: 1,
-                prefersTrending: false,
-                openToRecommendations: true,
-              },
-            }
-            setUserPreferences(preferences)
-          }
-        } catch (e) {
-          console.error("Error parsing stored user data:", e)
-          // If parsing fails, continue and try to validate token
-        }
-      }
-
-      // Now do a background token validation without blocking authentication
-      validateTokenInBackground(token)
-    } catch (error) {
-      console.error("Auth check error:", error)
-      // DO NOT LOGOUT here - let the user stay logged in even if there's an error
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Add this new function to validate token in background
-  const validateTokenInBackground = async (token) => {
-    try {
-      // First try the validation endpoint
-      const response = await api.get("/users/validate-token")
-      if (response.data && response.data.valid) {
-        console.log("Token validated successfully in background")
-        if (response.data.user) {
-          updateUserData(response.data.user)
-        }
-      }
-    } catch (err) {
-      // If validation endpoint doesn't exist, try another endpoint
-      if (err.response?.status === 404) {
-        try {
-          const meResponse = await api.get("/users/me")
-          if (meResponse.status === 200 && meResponse.data.user) {
-            console.log("User data fetched successfully in background")
-            updateUserData(meResponse.data.user)
-          }
-        } catch (innerErr) {
-          // Only log the error, don't logout
-          console.warn("Background validation failed:", innerErr.message)
-        }
-      } else {
-        console.warn("Token validation failed in background:", err.message)
-        // If it's a 401/403, quietly try to refresh the token
-        if (err.response?.status === 401 || err.response?.status === 403) {
-          refreshToken().catch((e) => console.warn("Token refresh failed:", e.message))
-        }
-      }
-    }
-  }
-
-  // Improved validateToken function for explicit validation
-  const validateToken = async (token) => {
-    try {
-      // Try the token validation endpoint
-      const response = await api.get("/users/validate-token")
-
-      if (response.data && response.data.valid) {
-        console.log("Token validated successfully")
-
-        // If response includes user data, update it
-        if (response.data.user) {
-          updateUserData(response.data.user)
-        }
-
-        return true
-      } else {
-        console.warn("Token validation failed")
-        return false
-      }
-    } catch (err) {
-      // If 404, endpoint doesn't exist, try alternative approach
-      if (err.response?.status === 404) {
-        console.log("Validation endpoint not found, trying alternative check...")
-
-        try {
-          // Try a basic endpoint that requires authentication
-          const checkResponse = await api.get("/users/me")
-
-          if (checkResponse.status === 200) {
-            console.log("Token verified via alternative endpoint")
-
-            if (checkResponse.data.user) {
-              updateUserData(checkResponse.data.user)
-            }
-
-            return true
-          }
-          return false
-        } catch (altErr) {
-          if (altErr.response?.status === 401 || altErr.response?.status === 403) {
-            console.error("Authentication failed:", altErr.response?.status)
-            return false
-          }
-
-          console.warn("Network or server error during auth check, assuming still valid:", altErr)
-          return true
-        }
-      } else if (err.response?.status === 401 || err.response?.status === 403) {
-        console.error("Token invalid:", err.response?.status)
-        return false
-      } else {
-        console.warn("Error during token validation, assuming still valid:", err)
-        return true
-      }
-    }
-  }
-  // Add this function to your AuthProvider component
-  const refreshUserData = async () => {
-    try {
-      setLoading(true)
-      const response = await api.get("/users/me")
-
-      if (response.data && response.data.user) {
-        // Create a standardized user object with all required fields
-        const userData = {
-          id: response.data.user._id || response.data.user.id,
-          _id: response.data.user._id || response.data.user.id,
-          fullName: response.data.user.fullName || response.data.user.name || currentUser?.fullName || "User",
-          email: response.data.user.email,
-          role: response.data.user.role || "user",
-          hasMembership: response.data.user.hasMembership || false,
-          phone: response.data.user.phone || currentUser?.phone || "",
-          // Include all user preference fields directly in user object
-          age: response.data.user.age || currentUser?.age,
-          gender: response.data.user.gender || currentUser?.gender,
-          location: response.data.user.location || currentUser?.location,
-          preferredLanguages: response.data.user.preferredLanguages || currentUser?.preferredLanguages || [],
-          favoriteGenres: response.data.user.favoriteGenres || currentUser?.favoriteGenres || [],
-          preferredBookFormat: response.data.user.preferredBookFormat || currentUser?.preferredBookFormat,
-          rentalPreferences: response.data.user.rentalPreferences ||
-            currentUser?.rentalPreferences || {
-              booksPerMonth: 1,
-              prefersTrending: false,
-              openToRecommendations: true,
-            },
-        }
-
-        // Update both states and localStorage
-        localStorage.setItem("user", JSON.stringify(userData))
-        setCurrentUser(userData)
-
-        // Also create and update preferences object
-        const preferences = {
-          age: userData.age,
-          gender: userData.gender,
-          location: userData.location,
-          preferredLanguages: userData.preferredLanguages,
-          favoriteGenres: userData.favoriteGenres,
-          preferredBookFormat: userData.preferredBookFormat,
-          rentalPreferences: userData.rentalPreferences,
-        }
-
-        setUserPreferences(preferences)
-        console.log("User data refreshed successfully:", userData)
-
-        // Check membership if needed
-        if (userData.hasMembership) {
-          fetchUserMembership()
-        }
-
-        return { success: true, user: userData }
-      }
-
-      return { success: false, error: "No user data returned" }
-    } catch (err) {
-      console.error("Failed to refresh user data:", err)
-      // Don't logout on errors - maintain existing state
-      return {
-        success: false,
-        error: err.response?.data?.message || "Error refreshing user data",
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-  // Improved fetchUserData function
-  const fetchUserData = async (token) => {
-    console.log("fetchUserData called with token:", token ? "Token provided" : "Using stored token")
-    try {
-      const authToken = token || localStorage.getItem("token")
-      if (!authToken) {
-        console.log("No token available for fetchUserData")
-        return
-      }
-
-      // Try the users/me endpoint first
+    if (adminUser) {
       try {
-        const response = await api.get("/users/me")
-
-        if (response.data && response.data.user) {
-          updateUserDataFromResponse(response.data.user)
-          return
-        }
-      } catch (err) {
-        if (err.response?.status === 404) {
-          console.log("users/me endpoint not found, trying auth/profile")
-          // If users/me returns 404, try the auth/profile endpoint
-          try {
-            const profileResponse = await api.get("/auth/profile")
-
-            if (profileResponse.data && profileResponse.data.user) {
-              updateUserDataFromResponse(profileResponse.data.user)
-              return
-            }
-          } catch (profileErr) {
-            console.error("Failed to fetch user profile from auth/profile:", profileErr)
-          }
-        } else {
-          console.error("Failed to fetch user data from users/me:", err)
-        }
+        return JSON.parse(adminUser);
+      } catch (e) {
+        console.error("Failed to parse admin user data:", e);
       }
-
-      // If we get here, both endpoints failed
-      console.error("All user data fetch attempts failed")
-    } catch (err) {
-      console.error("Error in fetchUserData:", err)
-    }
-  }
-
-  // Helper function to standardize user data processing
-  const updateUserDataFromResponse = (userData) => {
-    const standardizedUser = {
-      id: userData._id || userData.id,
-      _id: userData._id || userData.id,
-      fullName: userData.fullName || userData.name || "User",
-      email: userData.email,
-      role: userData.role || "user",
-      hasMembership: userData.hasMembership || false,
-      phone: userData.phone || "",
-      age: userData.age,
-      gender: userData.gender,
-      location: userData.location,
-      preferredLanguages: userData.preferredLanguages || [],
-      favoriteGenres: userData.favoriteGenres || [],
-      preferredBookFormat: userData.preferredBookFormat,
-      rentalPreferences: userData.rentalPreferences || {
-        booksPerMonth: 1,
-        prefersTrending: false,
-        openToRecommendations: true,
-      },
-      ...userData,
     }
 
-    localStorage.setItem("user", JSON.stringify(standardizedUser))
-    setCurrentUser(standardizedUser)
-    setIsAuthenticated(true)
-
-    // Also update preferences
-    const preferences = {
-      age: userData.age,
-      gender: userData.gender,
-      location: userData.location,
-      preferredLanguages: userData.preferredLanguages || [],
-      favoriteGenres: userData.favoriteGenres || [],
-      preferredBookFormat: userData.preferredBookFormat,
-      rentalPreferences: userData.rentalPreferences || {
-        booksPerMonth: 1,
-        prefersTrending: false,
-        openToRecommendations: true,
-      },
-    }
-
-    setUserPreferences(preferences)
-
-    console.log("User data and preferences updated:", standardizedUser, preferences)
-  }
-  const updateUserData = (userData) => {
-    if (!userData) return
-
-    const updatedUser = {
-      ...currentUser,
-      ...userData,
-      fullName: userData.fullName || userData.name || currentUser?.fullName || "User",
-    }
-
-    localStorage.setItem("user", JSON.stringify(updatedUser))
-    setCurrentUser(updatedUser)
-
-    // Also update preferences if available in userData
-    if (userData) {
-      const updatedPreferences = {
-        age: userData.age,
-        gender: userData.gender,
-        location: userData.location,
-        preferredLanguages: userData.preferredLanguages || userPreferences?.preferredLanguages || [],
-        favoriteGenres: userData.favoriteGenres || userPreferences?.favoriteGenres || [],
-        preferredBookFormat: userData.preferredBookFormat || userPreferences?.preferredBookFormat,
-        rentalPreferences: userData.rentalPreferences ||
-          userPreferences?.rentalPreferences || {
-            booksPerMonth: 1,
-            prefersTrending: false,
-            openToRecommendations: true,
-          },
-      }
-
-      setUserPreferences(updatedPreferences)
-    }
-
-    // If user has membership, fetch membership details
-    if (updatedUser.hasMembership) {
-      fetchUserMembership()
-    } else {
-      setUserMembership(null)
-    }
-  }
-
-  // Fetch user membership details
-  const fetchUserMembership = async () => {
-    if (!currentUser || !currentUser.hasMembership) {
-      setUserMembership(null)
-      return null
-    }
-
-    try {
-      // Update this path to match your API endpoint
-      const response = await api.get("/memberships/user-details")
-
-      if (response.data) {
-        setUserMembership(response.data)
-        return response.data
-      }
-
-      return null
-    } catch (err) {
-      console.error("Error fetching membership details:", err)
-
-      // If membership endpoint is not found, let's handle it gracefully
-      if (err.response?.status === 404) {
-        console.log("Membership endpoint not found - user might not have membership or endpoint is incorrect")
-
-        // Don't update the user object automatically if endpoint is missing
-        // We should confirm with backend team if this endpoint should exist
-      }
-
-      setUserMembership(null)
-      return null
-    }
-  }
-
-  // UPDATED: Enhanced updateUserProfile function with multiple endpoint attempts and fallback
-  // Based on your actual backend structure from app.ts
-  const updateUserProfile = async (profileData) => {
-    try {
-      setLoading(true)
-      console.log("Updating profile with data:", profileData)
-
-      // First try the most likely endpoint based on your backend structure
+    if (regularUser) {
       try {
-        const response = await api.put("/users/update", profileData)
-        console.log("Profile update response:", response.data)
-
-        if (response.data && (response.data.user || response.data.message)) {
-          // Get the updated user data from the response
-          const serverUpdatedUser = response.data.user || {}
-
-          // Create a complete updated user object
-          const updatedUser = {
-            ...currentUser,
-            ...profileData,
-            ...serverUpdatedUser,
-          }
-
-          // Update localStorage and state
-          localStorage.setItem("user", JSON.stringify(updatedUser))
-          setCurrentUser(updatedUser)
-
-          // Update preferences
-          const updatedPreferences = {
-            age: updatedUser.age,
-            gender: updatedUser.gender,
-            location: updatedUser.location,
-            preferredLanguages: updatedUser.preferredLanguages || [],
-            favoriteGenres: updatedUser.favoriteGenres || [],
-          }
-          setUserPreferences(updatedPreferences)
-
-          return { success: true, user: updatedUser }
-        }
-      } catch (primaryErr) {
-        console.error("Primary endpoint failed:", primaryErr)
-
-        // If the primary endpoint fails, try the auth/profile endpoint
-        try {
-          const altResponse = await api.put("/auth/profile", profileData)
-
-          if (altResponse.data && (altResponse.data.user || altResponse.data.message)) {
-            const updatedUser = {
-              ...currentUser,
-              ...profileData,
-              ...(altResponse.data.user || {}),
-            }
-
-            localStorage.setItem("user", JSON.stringify(updatedUser))
-            setCurrentUser(updatedUser)
-
-            return { success: true, user: updatedUser }
-          }
-        } catch (altErr) {
-          console.error("Alternative endpoint failed:", altErr)
-
-          // Try one more endpoint as a last resort
-          try {
-            const lastResponse = await api.put("/auth/update-profile", profileData)
-
-            if (lastResponse.data) {
-              const updatedUser = {
-                ...currentUser,
-                ...profileData,
-                ...(lastResponse.data.user || {}),
-              }
-
-              localStorage.setItem("user", JSON.stringify(updatedUser))
-              setCurrentUser(updatedUser)
-
-              return { success: true, user: updatedUser }
-            }
-          } catch (lastErr) {
-            console.error("Last resort endpoint failed:", lastErr)
-            throw new Error("All update endpoints failed")
-          }
-        }
+        return JSON.parse(regularUser);
+      } catch (e) {
+        console.error("Failed to parse user data:", e);
       }
-
-      return { success: false, error: "Update failed" }
-    } catch (err) {
-      console.error("Failed to update profile:", err)
-      return { success: false, error: err.response?.data?.message || "Failed to update profile" }
-    } finally {
-      setLoading(false)
     }
-  }
 
-  // Improved refreshToken function
-  const refreshToken = async () => {
+    return null;
+  };
+
+  // Initialize auth on app start
+  useEffect(() => {
+    initializeAuth();
+  }, []);
+
+  const initializeAuth = async () => {
     try {
-      const currentToken = localStorage.getItem("token")
-      const refreshTokenValue = localStorage.getItem("refreshToken") // Get the refresh token
+      const token = getActiveToken();
+      const userData = getActiveUser();
 
-      if (!currentToken || !refreshTokenValue) {
-        console.log("No token or refresh token to refresh")
-        return false
+      console.log("Initializing auth with:", {
+        hasToken: !!token,
+        hasUserData: !!userData,
+        userRole: userData?.role,
+      });
+
+      if (token && userData) {
+        // Set the initial state FIRST
+        setIsAuthenticated(true);
+        setCurrentUser(userData);
+
+        // Then try to validate the token with the server
+        try {
+          const response = await api.get("/users/validate-token");
+
+          if (response.data && response.data.user) {
+            const validatedUser = response.data.user;
+            console.log("Token validated successfully:", validatedUser);
+
+            // Update with server-validated data
+            setCurrentUser(validatedUser);
+
+            // Update localStorage with validated data
+            if (validatedUser.role === "admin") {
+              localStorage.setItem("adminUser", JSON.stringify(validatedUser));
+            }
+            localStorage.setItem("user", JSON.stringify(validatedUser));
+          }
+        } catch (validationError) {
+          console.warn(
+            "Token validation failed:",
+            validationError.response?.status,
+            validationError.message
+          );
+
+          // If token is invalid (401), clear auth data
+          if (validationError.response?.status === 401) {
+            clearAuthData();
+          }
+          // Otherwise keep using stored data (server might be down)
+        }
+      } else {
+        console.log("No stored authentication data found");
+        setIsAuthenticated(false);
+        setCurrentUser(null);
       }
-
-      // Try to refresh the token
-      const response = await api.post("/auth/refresh-token", {
-        refreshToken: refreshTokenValue, // Send the refresh token in the request body
-      })
-
-      if (response.data && response.data.accessToken) {
-        // Update token in localStorage
-        localStorage.setItem("token", response.data.accessToken)
-
-        console.log("Token refreshed successfully")
-        return true
-      }
-      return false
     } catch (error) {
-      console.error("Error refreshing token:", error)
-
-      // DON'T logout on errors - let the user stay logged in
-      // We'll try again later or let the token expire naturally
-      return false
+      console.error("Error during auth initialization:", error);
+      clearAuthData();
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  // Set the refreshTokenFunction for the interceptor to use
-  refreshTokenFunction = refreshToken
+  // Helper function to clear all auth data
+  const clearAuthData = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("user");
+    localStorage.removeItem("adminUser");
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+  };
 
-  // Regular login
-  // In AuthContext.js - Modify your login function
-  // In AuthContext.js
-
-  // Login function
+  // REGULAR LOGIN FUNCTION
   const login = async (email, password) => {
     try {
-      setLoading(true)
+      console.log("Attempting regular user login:", email);
 
-      // This is the correct path - make sure it matches your backend route
-      const response = await api.post("/auth/login", { email, password })
+      const response = await api.post("/auth/login", { email, password });
+      const { token, refreshToken, user } = response.data;
 
-      if (response.data) {
-        // Store both tokens
-        if (response.data.accessToken) {
-          localStorage.setItem("token", response.data.accessToken)
-        } else if (response.data.token) {
-          localStorage.setItem("token", response.data.token)
-        }
+      // Clear any existing admin data
+      localStorage.removeItem("adminToken");
+      localStorage.removeItem("adminUser");
 
-        // Store refresh token if available
-        if (response.data.refreshToken) {
-          localStorage.setItem("refreshToken", response.data.refreshToken)
-        }
-
-        api.defaults.headers.common["Authorization"] = `Bearer ${localStorage.getItem("token")}`
-
-        // Store the complete user data
-        const userData = response.data.user
-        localStorage.setItem("user", JSON.stringify(userData))
-
-        // Update user state
-        setCurrentUser(userData)
-        setIsAuthenticated(true)
-
-        // Also update user preferences state
-        const preferences = {
-          age: userData.age || null,
-          gender: userData.gender || null,
-          location: userData.location || null,
-          preferredLanguages: userData.preferredLanguages || [],
-          favoriteGenres: userData.favoriteGenres || [],
-        }
-
-        setUserPreferences(preferences)
-
-        return { success: true }
+      // Store tokens and user data
+      localStorage.setItem("token", token);
+      localStorage.setItem("authToken", token);
+      if (refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
       }
+      localStorage.setItem("user", JSON.stringify(user));
 
-      return { success: false, error: "Login failed" }
+      // Update state
+      setIsAuthenticated(true);
+      setCurrentUser(user);
+
+      console.log("Regular login successful:", user);
+      return { success: true, user };
     } catch (error) {
-      console.error("Login error:", error)
+      console.error("Login failed:", error);
       return {
         success: false,
-        error: error.response?.data?.message || "Invalid credentials",
-      }
-    } finally {
-      setLoading(false)
+        error:
+          error.response?.data?.message || "Login failed. Please try again.",
+      };
     }
-  }
+  };
 
-  // Check user status function
-  const checkUserStatus = async () => {
-    try {
-      const token = localStorage.getItem("token")
-      if (!token) {
-        setCurrentUser(null)
-        setUserPreferences(null)
-        return { loggedIn: false }
-      }
-
-      api.defaults.headers.common["Authorization"] = `Bearer ${token}`
-
-      // Validate token and get user data
-      const response = await api.get("/users/validate-token")
-
-      if (response.data && response.data.user) {
-        const userData = response.data.user
-
-        // Save user data to state and localStorage
-        setCurrentUser(userData)
-        localStorage.setItem("user", JSON.stringify(userData))
-
-        // Also update user preferences
-        const preferences = {
-          age: userData.age || null,
-          gender: userData.gender || null,
-          location: userData.location || null,
-          preferredLanguages: userData.preferredLanguages || [],
-          favoriteGenres: userData.favoriteGenres || [],
-        }
-
-        setUserPreferences(preferences)
-
-        return { loggedIn: true, userData }
-      }
-
-      // Token valid but no user data
-      return { loggedIn: false }
-    } catch (error) {
-      console.error("Session validation error:", error)
-      // Clear invalid session
-      localStorage.removeItem("token")
-      localStorage.removeItem("user")
-      setCurrentUser(null)
-      setUserPreferences(null)
-      return { loggedIn: false, error: error.message }
-    }
-  }
-  // Admin login
+  // ADMIN LOGIN FUNCTION - FIXED
   const adminLogin = async (email, password) => {
     try {
-      setLoading(true)
-      setError(null)
-      console.log(`Sending admin login request to ${API_URL}/admin/login`)
+      console.log("Attempting admin login with:", { email });
 
-      // First, check if the endpoint exists by sending a test request
-      try {
-        await axios.options(`${API_URL}/admin/login`)
-      } catch (optionsErr) {
-        console.log("Admin endpoint check failed, trying alternative endpoint")
-
-        // If the admin endpoint check fails, try the regular login endpoint
-        const regularLoginResponse = await api.post("/users/login", {
-          email,
-          password,
-        })
-
-        if (regularLoginResponse.data.token) {
-          // Verify if the user is an admin
-          const payload = JSON.parse(atob(regularLoginResponse.data.token.split(".")[1]))
-          const isAdmin = payload.role === "admin" || regularLoginResponse.data.user?.role === "admin"
-
-          if (!isAdmin) {
-            throw new Error("User is not an admin")
-          }
-
-          // Create proper admin user object
-          const userWithRole = {
-            ...regularLoginResponse.data.user,
-            role: "admin",
-            fullName: regularLoginResponse.data.user.fullName || regularLoginResponse.data.user.name || "Admin",
-          }
-
-          // Store both token and user data
-          localStorage.setItem("token", regularLoginResponse.data.token)
-          localStorage.setItem("user", JSON.stringify(userWithRole))
-
-          // Update state
-          setCurrentUser(userWithRole)
-          setIsAuthenticated(true)
-          console.log("Admin login successful via regular endpoint:", userWithRole)
-
-          return { success: true, user: userWithRole }
-        }
-      }
-
-      // If the above didn't return, try the dedicated admin endpoint
+      // Use the api instance but specify the full path
       const response = await api.post("/admin/login", {
         email,
         password,
-      })
+      });
 
-      if (response.data.token) {
-        // Create complete user object with role
-        const userWithRole = {
-          ...response.data.user,
+      console.log("Admin login response:", response.data);
+
+      if (response.data && response.data.token) {
+        const { token, user, message } = response.data;
+
+        // Clear any existing regular user data
+        localStorage.removeItem("token");
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("user");
+
+        // Store admin-specific token
+        localStorage.setItem("adminToken", token);
+        localStorage.setItem("authToken", token); // For compatibility
+
+        // Create comprehensive admin user object
+        const adminUser = {
+          id: user.id || user._id || "admin",
+          email: user.email || email,
           role: "admin",
-          fullName: response.data.user.fullName || response.data.user.name || "Admin",
-        }
+          fullName: user.fullName || user.name || "Administrator",
+          ...user,
+        };
 
-        // Store both token and complete user data
-        localStorage.setItem("token", response.data.token)
-        localStorage.setItem("user", JSON.stringify(userWithRole))
+        localStorage.setItem("adminUser", JSON.stringify(adminUser));
+        localStorage.setItem("user", JSON.stringify(adminUser));
 
-        // Update state
-        setCurrentUser(userWithRole)
-        setIsAuthenticated(true)
-        console.log("Admin login successful via admin endpoint:", userWithRole)
+        // Update state immediately
+        setCurrentUser(adminUser);
+        setIsAuthenticated(true);
 
-        return { success: true, user: userWithRole }
+        console.log("Admin login successful, state updated:", adminUser);
+        return { success: true, user: adminUser, message };
+      } else {
+        throw new Error(response.data.message || "Admin login failed");
+      }
+    } catch (error) {
+      console.error("Admin login error:", error);
+
+      let errorMessage = "Admin login failed";
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
       }
 
-      throw new Error("Admin login failed - no token received")
-    } catch (err) {
-      console.error("Admin login error details:", err)
-      const errorMessage = err.response?.data?.message || err.message || "Admin login failed"
-      setError(errorMessage)
-      return { success: false, error: errorMessage }
-    } finally {
-      setLoading(false)
+      return {
+        success: false,
+        message: errorMessage,
+      };
     }
-  }
+  };
 
-  // Registration
+  // CHECK AUTH STATUS
+  const checkAuthStatus = async () => {
+    try {
+      const token = getActiveToken();
+
+      if (!token) {
+        setIsAuthenticated(false);
+        setCurrentUser(null);
+        return false;
+      }
+
+      const response = await api.get("/users/validate-token");
+
+      if (response.data && response.data.user) {
+        const user = response.data.user;
+        setIsAuthenticated(true);
+        setCurrentUser(user);
+
+        // Update localStorage
+        if (user.role === "admin") {
+          localStorage.setItem("adminUser", JSON.stringify(user));
+        }
+        localStorage.setItem("user", JSON.stringify(user));
+
+        return true;
+      } else {
+        clearAuthData();
+        return false;
+      }
+    } catch (error) {
+      console.error("Auth status check failed:", error);
+      clearAuthData();
+      return false;
+    }
+  };
+
+  // UPDATE USER
+  const updateUser = (userData) => {
+    const updatedUser = { ...currentUser, ...userData };
+    setCurrentUser(updatedUser);
+    setIsAuthenticated(true);
+    localStorage.setItem("user", JSON.stringify(updatedUser));
+
+    if (updatedUser.role === "admin") {
+      localStorage.setItem("adminUser", JSON.stringify(updatedUser));
+    }
+  };
+
+  // LOGOUT FUNCTION - FIXED
+  const logout = () => {
+    console.log("Logging out user...", currentUser?.role);
+
+    const wasAdmin = currentUser?.role === "admin";
+
+    // Clear all auth-related data
+    clearAuthData();
+
+    // Redirect based on user type
+    if (wasAdmin) {
+      window.location.href = "/admin/login";
+    } else {
+      window.location.href = "/login";
+    }
+  };
+
+  // REGISTER FUNCTION
   const register = async (userData) => {
     try {
-      setLoading(true)
-      setError(null)
-
-      const response = await api.post("/auth/signup", userData)
-
-      return { success: true, message: response.data.message }
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || "Registration failed"
-      setError(errorMessage)
-      return { success: false, error: errorMessage }
-    } finally {
-      setLoading(false)
+      console.log("Attempting user registration:", userData.email);
+      const response = await api.post("/auth/signup", userData);
+      console.log("Registration successful");
+      return { success: true, message: "Registration successful" };
+    } catch (error) {
+      console.error("Registration failed:", error);
+      return {
+        success: false,
+        error:
+          error.response?.data?.message ||
+          "Registration failed. Please try again.",
+      };
     }
-  }
+  };
 
-  // Logout
-  const logout = () => {
-    localStorage.removeItem("token")
-    localStorage.removeItem("user")
-    setCurrentUser(null)
-    setUserPreferences(null)
-    setUserMembership(null)
-    setIsAuthenticated(false)
-    setError(null)
-  }
+  // REFRESH USER DATA
+  const refreshUserData = async () => {
+    if (!isAuthenticated) return;
 
-  // Update user preferences
-  const updatePreferences = async (preferencesData) => {
     try {
-      setLoading(true)
-      setError(null)
+      const token = getActiveToken();
 
-      const response = await api.put("/users/preferences", preferencesData)
-
-      if (response.data.user) {
-        // Update local preferences state
-        const updatedPreferences = {
-          age: response.data.user.age,
-          gender: response.data.user.gender,
-          location: response.data.user.location,
-          preferredLanguages: response.data.user.preferredLanguages || [],
-          favoriteGenres: response.data.user.favoriteGenres || [],
-          preferredBookFormat: response.data.user.preferredBookFormat,
-          rentalPreferences: response.data.user.rentalPreferences || {
-            booksPerMonth: 1,
-            prefersTrending: false,
-            openToRecommendations: true,
-          },
-        }
-
-        setUserPreferences(updatedPreferences)
-
-        // Also update the user data in state and localStorage
-        const updatedUser = {
-          ...currentUser,
-          age: response.data.user.age,
-          gender: response.data.user.gender,
-          location: response.data.user.location,
-          preferredLanguages: response.data.user.preferredLanguages || [],
-          favoriteGenres: response.data.user.favoriteGenres || [],
-          preferredBookFormat: response.data.user.preferredBookFormat,
-          rentalPreferences: response.data.user.rentalPreferences || {
-            booksPerMonth: 1,
-            prefersTrending: false,
-            openToRecommendations: true,
-          },
-        }
-
-        setCurrentUser(updatedUser)
-        localStorage.setItem("user", JSON.stringify(updatedUser))
-
-        return { success: true, message: response.data.message }
-      }
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || "Failed to update preferences"
-      setError(errorMessage)
-      return { success: false, error: errorMessage }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Function to diagnose token issues
-  const diagnoseTokenIssues = () => {
-    try {
-      // Check if token exists
-      const token = localStorage.getItem("token")
       if (!token) {
-        console.error("No token found in localStorage")
-        return false
+        console.error("No token available for refresh");
+        return;
       }
 
-      // Log token format
-      console.log("Token format check:")
-      console.log("- Length:", token.length)
-      console.log("- Starts with:", token.substring(0, 10) + "...")
+      const response = await api.get("/users/validate-token");
 
-      // Check token structure (should be in JWT format with 3 parts)
-      const parts = token.split(".")
-      if (parts.length !== 3) {
-        console.error("Invalid token format: not a valid JWT (should have 3 parts)")
-        return false
-      }
+      if (response.data && response.data.user) {
+        const user = response.data.user;
+        localStorage.setItem("user", JSON.stringify(user));
+        setCurrentUser(user);
 
-      // Decode payload
-      try {
-        const payload = JSON.parse(atob(parts[1]))
-        console.log("Decoded payload:", payload)
-
-        // Check if payload has crucial fields
-        if (!payload.userId && !payload.sub && !payload._id) {
-          console.error("Token missing userId/sub/_id field")
+        if (user.role === "admin") {
+          localStorage.setItem("adminUser", JSON.stringify(user));
         }
 
-        // Check expiration
-        if (payload.exp) {
-          const now = Math.floor(Date.now() / 1000)
-          const timeLeft = payload.exp - now
-          console.log(`Token expires in: ${timeLeft} seconds (${timeLeft / 60} minutes)`)
-
-          if (timeLeft < 0) {
-            console.error("Token is expired!")
-            return false
-          }
-        } else {
-          console.warn("Token has no expiration!")
-        }
-
-        return true
-      } catch (e) {
-        console.error("Failed to decode token payload:", e)
-        return false
+        console.log("User data refreshed:", user);
       }
-    } catch (e) {
-      console.error("Token diagnosis error:", e)
-      return false
+    } catch (error) {
+      console.error("Could not refresh user data:", error);
+
+      if (error.response?.status === 401) {
+        logout();
+      }
     }
-  }
+  };
 
-  // Function to get user email for autofilling forms
-  const getUserEmail = () => {
-    return currentUser?.email || ""
-  }
-
-  // Changed from property to function
+  // HELPER FUNCTIONS
   const isAdmin = () => {
-    return currentUser?.role === "admin"
-  }
+    return currentUser?.role === "admin";
+  };
 
-  // Initialize auth state and setup refresh timer
-  useEffect(() => {
-    console.log("Auth provider initialized")
+  const isRegularUser = () => {
+    return currentUser?.role === "user" || (currentUser && !currentUser.role);
+  };
 
-    // CRITICAL: Immediately set authentication state from localStorage
-    const token = localStorage.getItem("token")
-    const userData = localStorage.getItem("user")
+  const getToken = () => {
+    return getActiveToken();
+  };
 
-    if (token && userData) {
-      try {
-        const parsedUser = JSON.parse(userData)
-        setCurrentUser(parsedUser)
-        setIsAuthenticated(true)
-
-        // Also set user preferences from stored user data
-        if (parsedUser) {
-          const preferences = {
-            age: parsedUser.age,
-            gender: parsedUser.gender,
-            location: parsedUser.location,
-            preferredLanguages: parsedUser.preferredLanguages || [],
-            favoriteGenres: parsedUser.favoriteGenres || [],
-            preferredBookFormat: parsedUser.preferredBookFormat,
-            rentalPreferences: parsedUser?.rentalPreferences || {
-              booksPerMonth: 1,
-              prefersTrending: false,
-              openToRecommendations: true,
-            },
-          }
-          setUserPreferences(preferences)
-        }
-
-        console.log("User authenticated from localStorage immediately")
-      } catch (e) {
-        console.error("Error parsing user data from localStorage")
-      }
-    }
-
-    // Then check auth status which will validate in the background
-    checkAuthStatus()
-
-    // Set up automatic token refresh
-    const refreshInterval = setInterval(
-      () => {
-        if (localStorage.getItem("token")) {
-          refreshToken().catch((e) => console.warn("Scheduled token refresh failed:", e.message))
-        }
-      },
-      15 * 60 * 1000,
-    ) // Every 15 minutes
-
-    return () => clearInterval(refreshInterval)
-  }, [])
-
-  // Add useEffect to fetch membership details when user changes
-  useEffect(() => {
-    // If user is authenticated and has membership, fetch membership details
-    if (isAuthenticated && currentUser?.hasMembership) {
-      fetchUserMembership()
-    }
-  }, [isAuthenticated, currentUser?.hasMembership])
-
+  // CONTEXT VALUE
   const value = {
+    // User data
     currentUser,
-    userPreferences,
-    userMembership,
-    loading,
-    error,
+    user: currentUser,
+
+    // Auth state
     isAuthenticated,
+    loading,
+
+    // Auth functions
     login,
     adminLogin,
-    register,
     logout,
-    updatePreferences,
-    fetchUserData,
-    updateUserData,
-    updateUserProfile,
-    checkAuthStatus,
-    getUserEmail,
-    diagnoseTokenIssues,
-    refreshToken,
-    isAdmin,
-    fetchUserMembership,
+    register,
+
+    // Utility functions
     refreshUserData,
-    API_URL,
-    api, // Export the API instance for use in components
+    updateUser,
+    checkAuthStatus,
+
+    // Helper functions
+    isAdmin: isAdmin(),
+    isRegularUser: isRegularUser(),
+    getToken,
+
+    // API instance
+    api,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+// AXIOS INTERCEPTORS - FIXED
+api.interceptors.request.use(
+  (config) => {
+    const token =
+      localStorage.getItem("adminToken") ||
+      localStorage.getItem("authToken") ||
+      localStorage.getItem("token");
+
+    if (token) {
+      config.headers["Authorization"] = `Bearer ${token}`;
+      console.log(
+        `Setting Authorization header for ${config.url}:`,
+        `Bearer ${token.substring(0, 20)}...`
+      );
+    } else {
+      console.warn(`No token found for request to ${config.url}`);
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        `API Request: ${config.method?.toUpperCase()} ${config.url}`,
+        {
+          hasToken: !!token,
+          fullURL: config.baseURL + config.url,
+        }
+      );
+    }
+
+    return config;
+  },
+  (error) => {
+    console.error("Request interceptor error:", error);
+    return Promise.reject(error);
   }
+);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
-}
+api.interceptors.response.use(
+  (response) => {
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        `API Response Success: ${response.config.method?.toUpperCase()} ${
+          response.config.url
+        }`,
+        {
+          status: response.status,
+          success: true,
+        }
+      );
+    }
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
 
-export default AuthContext
+    console.error(
+      `API Error: ${originalRequest?.method?.toUpperCase()} ${
+        originalRequest?.url
+      }`,
+      {
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        fullURL: originalRequest?.baseURL + originalRequest?.url,
+      }
+    );
+
+    // Handle 401 errors
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      console.log("401 Unauthorized - handling token refresh/redirect");
+
+      // For admin routes, clear everything and redirect
+      if (originalRequest.url?.includes("/admin/")) {
+        console.log("Admin token expired, clearing auth and redirecting...");
+        localStorage.clear();
+        window.location.href = "/admin/login";
+        return Promise.reject(error);
+      }
+
+      // For regular users, try refresh token
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (!refreshToken) {
+        console.log("No refresh token available, redirecting to login...");
+        localStorage.clear();
+        window.location.href = "/login";
+        return Promise.reject(error);
+      }
+
+      try {
+        console.log("Attempting to refresh token...");
+        const response = await axios.post("/api/auth/refresh-token", {
+          refreshToken,
+        });
+
+        const { accessToken } = response.data;
+
+        if (accessToken) {
+          localStorage.setItem("token", accessToken);
+          localStorage.setItem("authToken", accessToken);
+          originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
+
+          console.log("Token refreshed successfully, retrying request...");
+          return api(originalRequest);
+        } else {
+          throw new Error("No access token in refresh response");
+        }
+      } catch (refreshError) {
+        console.error("Token refresh failed:", refreshError);
+        localStorage.clear();
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+export default AuthContext;

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useCart } from '../contexts/CartContext';
+import React, { useState, useEffect } from "react";
+import { useCart } from "../contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -19,12 +19,12 @@ const BooksSection = () => {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedLanguage, setSelectedLanguage] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedLanguage, setSelectedLanguage] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const { addToCart } = useCart();
   const [showAlert, setShowAlert] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
+  const [alertMessage, setAlertMessage] = useState("");
   const navigate = useNavigate();
 
   // Fetch books from API
@@ -32,12 +32,12 @@ const BooksSection = () => {
     const fetchBooks = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/books');
+        const response = await axios.get("/api/books");
         setBooks(response.data);
         setError(null);
       } catch (err) {
-        console.error('Error fetching books:', err);
-        setError('Failed to load books. Please try again later.');
+        console.error("Error fetching books:", err);
+        setError("Failed to load books. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -48,7 +48,7 @@ const BooksSection = () => {
 
   const handleAddToCart = (book) => {
     addToCart(book);
-    setAlertMessage('Item has been added to your cart successfully.');
+    setAlertMessage("Item has been added to your cart successfully.");
     setShowAlert(true);
   };
 
@@ -60,39 +60,47 @@ const BooksSection = () => {
         ...book,
         isRental: true,
         rentalPrice: book.price * 0.3, // 30% of purchase price
-        rentalDuration: '14 days'
+        rentalDuration: "14 days",
       });
-      
-      setAlertMessage('Book rental added to cart! Redirecting to checkout...');
+
+      setAlertMessage("Book rental added to cart! Redirecting to checkout...");
       setShowAlert(true);
-      
+
       // Navigate directly to checkout after a short delay
       setTimeout(() => {
         setShowAlert(false);
-        navigate('/checkout'); // Navigate to checkout instead of cart
+        navigate("/checkout"); // Navigate to checkout instead of cart
       }, 1500);
     } catch (err) {
-      console.error('Error adding rental to cart:', err);
-      setAlertMessage('Error adding rental to cart. Please try again.');
+      console.error("Error adding rental to cart:", err);
+      setAlertMessage("Error adding rental to cart. Please try again.");
       setShowAlert(true);
     }
   };
 
   // Get unique genres from books
-  const genres = ['All', ...new Set(books.map(book => book.genre).filter(Boolean))];
-  
-  // Get unique languages from books
-  const languages = ['All', ...new Set(books.map(book => book.language).filter(Boolean))];
+  const genres = [
+    "All",
+    ...new Set(books.map((book) => book.genre).filter(Boolean)),
+  ];
 
-  const filteredBooks = books
-    .filter(book => {
-      const matchesCategory = selectedCategory === 'All' || book.genre === selectedCategory;
-      const matchesLanguage = selectedLanguage === 'All' || book.language === selectedLanguage;
-      const matchesSearch = searchQuery === '' || 
-        book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        book.author.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesLanguage && matchesSearch;
-    });
+  // Get unique languages from books
+  const languages = [
+    "All",
+    ...new Set(books.map((book) => book.language).filter(Boolean)),
+  ];
+
+  const filteredBooks = books.filter((book) => {
+    const matchesCategory =
+      selectedCategory === "All" || book.genre === selectedCategory;
+    const matchesLanguage =
+      selectedLanguage === "All" || book.language === selectedLanguage;
+    const matchesSearch =
+      searchQuery === "" ||
+      book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      book.author.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesCategory && matchesLanguage && matchesSearch;
+  });
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -115,7 +123,7 @@ const BooksSection = () => {
       <div className="mb-4">
         <h3 className="text-lg font-medium mb-2">Genre</h3>
         <div className="flex flex-wrap gap-2">
-          {genres.map(genre => (
+          {genres.map((genre) => (
             <Button
               key={genre}
               onClick={() => setSelectedCategory(genre)}
@@ -132,7 +140,7 @@ const BooksSection = () => {
       <div className="mb-8">
         <h3 className="text-lg font-medium mb-2">Language</h3>
         <div className="flex flex-wrap gap-2">
-          {languages.map(language => (
+          {languages.map((language) => (
             <Button
               key={language}
               onClick={() => setSelectedLanguage(language)}
@@ -163,22 +171,25 @@ const BooksSection = () => {
       {!loading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredBooks.length > 0 ? (
-            filteredBooks.map(book => (
-              <div key={book._id} className="bg-white rounded-lg shadow-lg overflow-hidden transition-transform hover:scale-105">
+            filteredBooks.map((book) => (
+              <div
+                key={book._id}
+                className="bg-white rounded-lg shadow-lg overflow-hidden transition-transform hover:scale-105"
+              >
                 {/* Language and Genre Tags positioned over image */}
                 <div className="relative">
                   <img
-                    src={book.imageUrl || '/api/placeholder/200/300'}
+                    src={book.imageUrl || "/placeholder/200/300"}
                     alt={book.title}
                     className="w-full h-64 object-cover"
                     onError={(e) => {
-                      e.target.src = '/api/placeholder/200/300';
+                      e.target.src = "/placeholder/200/300";
                     }}
                   />
                   <div className="absolute top-2 left-2 flex items-center">
                     <span className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs flex items-center">
                       <Globe className="h-3 w-3 mr-1" />
-                      {book.language || 'Unknown'}
+                      {book.language || "Unknown"}
                     </span>
                   </div>
                   {book.genre && (
@@ -193,9 +204,13 @@ const BooksSection = () => {
                   <h3 className="text-lg font-semibold mb-2">{book.title}</h3>
                   <p className="text-gray-600 mb-2">by {book.author}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-blue-500 font-bold">Rs.{book.price}</span>
+                    <span className="text-blue-500 font-bold">
+                      Rs.{book.price}
+                    </span>
                   </div>
-                  <p className="text-sm text-gray-500 mt-2 line-clamp-2">{book.description}</p>
+                  <p className="text-sm text-gray-500 mt-2 line-clamp-2">
+                    {book.description}
+                  </p>
                   <div className="mt-4 flex gap-2">
                     <Button
                       variant="default"
@@ -203,7 +218,7 @@ const BooksSection = () => {
                       onClick={() => handleAddToCart(book)}
                       disabled={book.stockQuantity <= 0}
                     >
-                      {book.stockQuantity > 0 ? 'Add to Cart' : 'Out of Stock'}
+                      {book.stockQuantity > 0 ? "Add to Cart" : "Out of Stock"}
                     </Button>
                     <Button
                       variant="secondary"
@@ -230,9 +245,7 @@ const BooksSection = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Notice</AlertDialogTitle>
-            <AlertDialogDescription>
-              {alertMessage}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{alertMessage}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction>Continue</AlertDialogAction>
