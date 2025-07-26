@@ -42,18 +42,21 @@ const Navbar = () => {
       <nav className="fixed top-0 w-full bg-purple-700 shadow-lg z-50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex justify-between items-center h-16">
-            <img src="/logo.png" alt="" />
-            <div>
-              <Link
-                to="/"
-                className="flex items-center space-x-2"
-                onClick={closeMenu}
-              >
-                <span className="font-bold text-xl text-white">
-                  BookHub: A Book Rental Platform
-                </span>
-              </Link>
-            </div>
+            {/* Logo and Brand - Left Side */}
+            <Link
+              to="/"
+              className="flex items-center space-x-3"
+              onClick={closeMenu}
+            >
+              <img
+                src="/BookImage/logo.png"
+                alt="BookHub Logo"
+                className="h-10 w-10 object-contain"
+              />
+              <span className="font-bold text-xl text-white">
+                BookHub: A Book Rental Platform
+              </span>
+            </Link>
 
             {/* Mobile menu button */}
             <div className="md:hidden">
@@ -70,7 +73,7 @@ const Navbar = () => {
             </div>
 
             {/* Desktop menu - right-aligned */}
-            <div className="hidden md:flex items-center space-x-8">
+            <div className="hidden md:flex items-center space-x-8 ml-auto">
               <Link
                 to="/"
                 className="text-white hover:text-purple-200 flex items-center space-x-1"
