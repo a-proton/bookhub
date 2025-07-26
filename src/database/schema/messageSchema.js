@@ -1,35 +1,56 @@
-import mongoose from 'mongoose';
-const { Schema } = mongoose;
+// src/database/schema/messageSchema.js
+import mongoose from "mongoose";
 
-const messageSchema = new Schema({
-  fullName: {
-    type: String,
-    required: true
+const messageSchema = new mongoose.Schema(
+  {
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+      lowercase: true,
+    },
+    phone: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    subject: {
+      type: String,
+      trim: true,
+      default: "No Subject",
+    },
+    message: {
+      type: String,
+      required: true,
+    },
+    isRead: {
+      type: Boolean,
+      default: false,
+    },
+    readAt: {
+      type: Date,
+      default: null,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
-  email: {
-    type: String,
-    required: true
-  },
-  subject: {
-    type: String,
-    default: 'No Subject'
-  },
-  message: {
-    type: String,
-    required: true
-  },
-  isRead: {
-    type: Boolean,
-    default: false
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  {
+    timestamps: true, // This adds createdAt and updatedAt automatically
   }
-}, { timestamps: true });
+);
 
-messageSchema.index({ isRead: 1 });
+// Index for better query performance
 messageSchema.index({ createdAt: -1 });
+messageSchema.index({ isRead: 1 });
+messageSchema.index({ email: 1 });
 
-const Message = mongoose.model('Message', messageSchema);
+const Message = mongoose.model("Message", messageSchema);
+
 export default Message;

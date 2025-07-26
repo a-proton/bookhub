@@ -78,7 +78,15 @@ export const AuthProvider = ({ children }) => {
         setIsAuthenticated(true);
         setCurrentUser(userData);
 
-        // Then try to validate the token with the server
+        // For admin users, skip token validation initially
+        // since the admin endpoint might be different
+        if (userData.role === "admin") {
+          console.log("Admin user detected, using stored data");
+          setLoading(false);
+          return;
+        }
+
+        // Then try to validate the token with the server for regular users
         try {
           const response = await api.get("/users/validate-token");
 
@@ -88,11 +96,6 @@ export const AuthProvider = ({ children }) => {
 
             // Update with server-validated data
             setCurrentUser(validatedUser);
-
-            // Update localStorage with validated data
-            if (validatedUser.role === "admin") {
-              localStorage.setItem("adminUser", JSON.stringify(validatedUser));
-            }
             localStorage.setItem("user", JSON.stringify(validatedUser));
           }
         } catch (validationError) {
@@ -102,11 +105,14 @@ export const AuthProvider = ({ children }) => {
             validationError.message
           );
 
-          // If token is invalid (401), clear auth data
-          if (validationError.response?.status === 401) {
+          // If token is invalid (401), clear auth data for regular users
+          if (
+            validationError.response?.status === 401 &&
+            userData.role !== "admin"
+          ) {
             clearAuthData();
           }
-          // Otherwise keep using stored data (server might be down)
+          // For admin users or other errors, keep using stored data
         }
       } else {
         console.log("No stored authentication data found");
@@ -131,6 +137,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("adminUser");
     setIsAuthenticated(false);
     setCurrentUser(null);
+
+    // Remove authorization header
+    delete api.defaults.headers.common["Authorization"];
   };
 
   // REGULAR LOGIN FUNCTION
@@ -153,6 +162,9 @@ export const AuthProvider = ({ children }) => {
       }
       localStorage.setItem("user", JSON.stringify(user));
 
+      // Set authorization header
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
       // Update state
       setIsAuthenticated(true);
       setCurrentUser(user);
@@ -169,12 +181,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // ADMIN LOGIN FUNCTION - FIXED
+  // ADMIN LOGIN FUNCTION - IMPROVED
   const adminLogin = async (email, password) => {
     try {
       console.log("Attempting admin login with:", { email });
 
-      // Use the api instance but specify the full path
+      // Clear any existing auth data first
+      clearAuthData();
+
       const response = await api.post("/admin/login", {
         email,
         password,
@@ -185,14 +199,12 @@ export const AuthProvider = ({ children }) => {
       if (response.data && response.data.token) {
         const { token, user, message } = response.data;
 
-        // Clear any existing regular user data
-        localStorage.removeItem("token");
-        localStorage.removeItem("authToken");
-        localStorage.removeItem("user");
-
         // Store admin-specific token
         localStorage.setItem("adminToken", token);
         localStorage.setItem("authToken", token); // For compatibility
+
+        // Set authorization header immediately
+        api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
         // Create comprehensive admin user object
         const adminUser = {
@@ -232,30 +244,48 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // CHECK AUTH STATUS
+  // CHECK AUTH STATUS - IMPROVED
   const checkAuthStatus = async () => {
     try {
       const token = getActiveToken();
+      const userData = getActiveUser();
 
-      if (!token) {
+      if (!token || !userData) {
         setIsAuthenticated(false);
         setCurrentUser(null);
         return false;
       }
 
+      // For admin users, use a different validation approach
+      if (userData.role === "admin") {
+        // Try to make a simple admin API call to verify token
+        try {
+          const response = await api.get("/admin/dashboard-stats");
+          // If successful, admin token is valid
+          setIsAuthenticated(true);
+          setCurrentUser(userData);
+          return true;
+        } catch (error) {
+          if (error.response?.status === 401) {
+            console.log("Admin token expired");
+            clearAuthData();
+            return false;
+          }
+          // For other errors, assume token is still valid
+          setIsAuthenticated(true);
+          setCurrentUser(userData);
+          return true;
+        }
+      }
+
+      // For regular users, use the standard validation endpoint
       const response = await api.get("/users/validate-token");
 
       if (response.data && response.data.user) {
         const user = response.data.user;
         setIsAuthenticated(true);
         setCurrentUser(user);
-
-        // Update localStorage
-        if (user.role === "admin") {
-          localStorage.setItem("adminUser", JSON.stringify(user));
-        }
         localStorage.setItem("user", JSON.stringify(user));
-
         return true;
       } else {
         clearAuthData();
@@ -263,7 +293,9 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Auth status check failed:", error);
-      clearAuthData();
+      if (error.response?.status === 401) {
+        clearAuthData();
+      }
       return false;
     }
   };
@@ -280,7 +312,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // LOGOUT FUNCTION - FIXED
+  // LOGOUT FUNCTION - IMPROVED
   const logout = () => {
     console.log("Logging out user...", currentUser?.role);
 
@@ -315,15 +347,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // REFRESH USER DATA
+  // REFRESH USER DATA - IMPROVED
   const refreshUserData = async () => {
     if (!isAuthenticated) return;
 
     try {
       const token = getActiveToken();
+      const userData = getActiveUser();
 
       if (!token) {
         console.error("No token available for refresh");
+        return;
+      }
+
+      // For admin users, skip refresh or use admin-specific endpoint
+      if (userData?.role === "admin") {
+        console.log("Admin user - skipping refresh");
         return;
       }
 
@@ -333,11 +372,6 @@ export const AuthProvider = ({ children }) => {
         const user = response.data.user;
         localStorage.setItem("user", JSON.stringify(user));
         setCurrentUser(user);
-
-        if (user.role === "admin") {
-          localStorage.setItem("adminUser", JSON.stringify(user));
-        }
-
         console.log("User data refreshed:", user);
       }
     } catch (error) {
@@ -349,7 +383,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // HELPER FUNCTIONS
+  // HELPER FUNCTIONS - FIXED: Return functions, not boolean values
   const isAdmin = () => {
     return currentUser?.role === "admin";
   };
@@ -383,9 +417,9 @@ export const AuthProvider = ({ children }) => {
     updateUser,
     checkAuthStatus,
 
-    // Helper functions
-    isAdmin: isAdmin(),
-    isRegularUser: isRegularUser(),
+    // Helper functions - FIXED: Pass functions, not function calls
+    isAdmin, // Function reference, not isAdmin()
+    isRegularUser, // Function reference, not isRegularUser()
     getToken,
 
     // API instance
@@ -395,13 +429,10 @@ export const AuthProvider = ({ children }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// AXIOS INTERCEPTORS - FIXED
+// AXIOS INTERCEPTORS - IMPROVED
 api.interceptors.request.use(
   (config) => {
-    const token =
-      localStorage.getItem("adminToken") ||
-      localStorage.getItem("authToken") ||
-      localStorage.getItem("token");
+    const token = getActiveToken();
 
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
@@ -411,6 +442,15 @@ api.interceptors.request.use(
       );
     } else {
       console.warn(`No token found for request to ${config.url}`);
+    }
+
+    // Helper function to get token (defined here for interceptor access)
+    function getActiveToken() {
+      return (
+        localStorage.getItem("adminToken") ||
+        localStorage.getItem("authToken") ||
+        localStorage.getItem("token")
+      );
     }
 
     if (process.env.NODE_ENV === "development") {
@@ -460,17 +500,34 @@ api.interceptors.response.use(
       }
     );
 
-    // Handle 401 errors
+    // Handle 401 errors more carefully
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       console.log("401 Unauthorized - handling token refresh/redirect");
 
-      // For admin routes, clear everything and redirect
-      if (originalRequest.url?.includes("/admin/")) {
-        console.log("Admin token expired, clearing auth and redirecting...");
+      // Get current user data to determine type
+      const userData = JSON.parse(
+        localStorage.getItem("adminUser") ||
+          localStorage.getItem("user") ||
+          "null"
+      );
+
+      // For admin routes or admin users, clear everything and redirect to admin login
+      if (
+        originalRequest.url?.includes("/admin/") ||
+        userData?.role === "admin"
+      ) {
+        console.log(
+          "Admin authentication failed, clearing auth and redirecting..."
+        );
         localStorage.clear();
-        window.location.href = "/admin/login";
+        delete api.defaults.headers.common["Authorization"];
+
+        // Avoid infinite redirects
+        if (!window.location.pathname.includes("/admin/login")) {
+          window.location.href = "/admin/login";
+        }
         return Promise.reject(error);
       }
 
@@ -479,6 +536,7 @@ api.interceptors.response.use(
       if (!refreshToken) {
         console.log("No refresh token available, redirecting to login...");
         localStorage.clear();
+        delete api.defaults.headers.common["Authorization"];
         window.location.href = "/login";
         return Promise.reject(error);
       }
@@ -495,6 +553,9 @@ api.interceptors.response.use(
           localStorage.setItem("token", accessToken);
           localStorage.setItem("authToken", accessToken);
           originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
+          api.defaults.headers.common[
+            "Authorization"
+          ] = `Bearer ${accessToken}`;
 
           console.log("Token refreshed successfully, retrying request...");
           return api(originalRequest);
@@ -504,6 +565,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         console.error("Token refresh failed:", refreshError);
         localStorage.clear();
+        delete api.defaults.headers.common["Authorization"];
         window.location.href = "/login";
         return Promise.reject(refreshError);
       }

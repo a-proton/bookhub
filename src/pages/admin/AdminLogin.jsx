@@ -7,17 +7,16 @@ const AdminLogin = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { isAuthenticated, user, adminLogin, loading: authLoading } = useAuth();
+  const { isAuthenticated, user, adminLogin } = useAuth();
   const navigate = useNavigate();
 
   // If already authenticated as admin, redirect to dashboard
   useEffect(() => {
-    // Wait for auth context to finish loading
-    if (!authLoading && isAuthenticated && user?.role === "admin") {
+    if (isAuthenticated && user?.role === "admin") {
       console.log("Already authenticated as admin, redirecting...");
       navigate("/admin/dashboard", { replace: true });
     }
-  }, [isAuthenticated, user, navigate, authLoading]);
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,8 +32,13 @@ const AdminLogin = () => {
         return;
       }
 
-      // Clear any existing errors
-      setError("");
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setError("Please enter a valid email address");
+        setLoading(false);
+        return;
+      }
 
       // Use the adminLogin function from context
       const result = await adminLogin(email, password);
@@ -47,30 +51,28 @@ const AdminLogin = () => {
         // Clear form
         setEmail("");
         setPassword("");
-        setError("");
 
-        // Navigate immediately - the useEffect will handle any additional redirects
+        // Navigate to dashboard
         navigate("/admin/dashboard", { replace: true });
       } else {
         setError(result.message || "Failed to login as admin");
-        console.error("Admin login failed:", result.message);
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("Failed to login. Please check your credentials and try again.");
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Show loading while auth context is initializing
-  if (authLoading) {
+  // Show loading state while checking authentication
+  if (loading && isAuthenticated === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-white p-8 rounded shadow-md">
+        <div className="bg-white p-8 rounded shadow-md w-full max-w-md">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="mt-2 text-gray-600">Loading...</p>
+            <p className="mt-2 text-gray-600">Checking authentication...</p>
           </div>
         </div>
       </div>
@@ -86,7 +88,7 @@ const AdminLogin = () => {
 
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            <strong>Error:</strong> {error}
+            {error}
           </div>
         )}
 
@@ -101,7 +103,7 @@ const AdminLogin = () => {
             <input
               id="email"
               type="email"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -120,7 +122,7 @@ const AdminLogin = () => {
             <input
               id="password"
               type="password"
-              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:border-blue-500"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -132,11 +134,7 @@ const AdminLogin = () => {
           <div className="flex items-center justify-between">
             <button
               type="submit"
-              className={`w-full font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ${
-                loading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-500 hover:bg-blue-700 text-white"
-              }`}
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading}
             >
               {loading ? (
@@ -155,26 +153,15 @@ const AdminLogin = () => {
           <a
             href="/"
             className="text-blue-500 hover:text-blue-700 text-sm"
-            tabIndex={loading ? -1 : 0}
+            onClick={(e) => {
+              if (loading) {
+                e.preventDefault();
+              }
+            }}
           >
             Back to Home
           </a>
         </div>
-
-        {/* Debug info in development */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="mt-4 p-2 bg-gray-100 rounded text-xs">
-            <strong>Debug Info:</strong>
-            <br />
-            Auth Loading: {authLoading ? "Yes" : "No"}
-            <br />
-            Is Authenticated: {isAuthenticated ? "Yes" : "No"}
-            <br />
-            User Role: {user?.role || "None"}
-            <br />
-            Has Token: {localStorage.getItem("adminToken") ? "Yes" : "No"}
-          </div>
-        )}
       </div>
     </div>
   );

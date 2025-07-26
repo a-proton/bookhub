@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { useAuth } from "@/contexts/AuthContext"; // Use your auth context
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ import {
 
 const BookManagement = () => {
   const { toast } = useToast();
+  const { api, currentUser, isAuthenticated, logout } = useAuth();
+
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -70,149 +72,68 @@ const BookManagement = () => {
     "Other",
   ];
 
-  // Get the correct API base URL
-  const API_BASE_URL = "http://localhost:5173";
-
   // Navigation function
   const handleBackToDashboard = () => {
-    // Option 1: If you're using Next.js router
-    // router.push('/admin/dashboard');
-
-    // Option 2: If you're using React Router
-    // navigate('/admin/dashboard');
-
-    // Option 3: Simple window location (replace with your actual dashboard URL)
     window.location.href = "/admin/dashboard";
   };
 
-  // Get auth token on component load and whenever needed
-  const getAuthToken = () => {
-    const token = localStorage.getItem("token");
-    if (!token) {
-      setError("Authentication token not found. Please log in again.");
-      return null;
+  // Check authentication on component mount
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser) {
+      setError("Please log in to access this page.");
+      return;
     }
-    console.log("Token found:", token.substring(0, 10) + "..."); // Log part of the token for debugging
-    return token;
-  };
 
-  // Create axios instance with auth headers
-  const authAxios = () => {
-    const token = getAuthToken();
-    if (!token) return null;
-
-    // Create and return axios instance with proper headers
-    return axios.create({
-      baseURL: API_BASE_URL,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`, // Ensure proper format with space after Bearer
-      },
-      withCredentials: true, // Include cookies if your API uses them
-    });
-  };
-
-  // Add this function to check and refresh token if needed
-  const checkTokenValidity = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Authentication token not found. Please log in again.");
-        return false;
-      }
-
-      // For debugging purposes - log the token format
-      console.log("Token format check:", {
-        token: token.substring(0, 10) + "...",
-        length: token.length,
-        hasBearerPrefix: token.startsWith("Bearer "),
-      });
-
-      // If your token starts with "Bearer ", remove it from storage and keep only the token part
-      if (token.startsWith("Bearer ")) {
-        const actualToken = token.replace("Bearer ", "");
-        localStorage.setItem("token", actualToken);
-        console.log("Fixed token format in localStorage");
-      }
-
-      return true;
-    } catch (err) {
-      console.error("Token validation error:", err);
-      setError("Session expired. Please log in again.");
-      return false;
+    if (currentUser.role !== "admin") {
+      setError("Admin access required.");
+      return;
     }
-  };
+
+    fetchBooks();
+  }, [isAuthenticated, currentUser]);
 
   const fetchBooks = async () => {
     try {
       setLoading(true);
-      const axiosInstance = authAxios();
-      if (!axiosInstance) {
-        setLoading(false);
-        return;
-      }
-
-      console.log("Fetching books from:", `${API_BASE_URL}/api/admin/books`);
-      const response = await axiosInstance.get("/api/admin/books");
-      console.log("Books response:", response.data);
-      setBooks(response.data);
       setError(null);
+
+      console.log("Fetching books...");
+      const response = await api.get("/admin/books");
+
+      if (response.data) {
+        console.log("Books fetched successfully:", response.data);
+        setBooks(Array.isArray(response.data) ? response.data : []);
+      } else {
+        setBooks([]);
+      }
     } catch (err) {
       console.error("Error fetching books:", err);
 
-      // Log full error details for debugging
-      if (err.response) {
-        console.error("Error response details:", {
-          status: err.response.status,
-          statusText: err.response.statusText,
-          headers: err.response.headers,
-          data: err.response.data,
+      if (err.response?.status === 401) {
+        setError("Your session has expired. Please log in again.");
+        toast({
+          title: "Session Expired",
+          description: "Please log in again.",
+          variant: "destructive",
         });
-      }
-
-      // Handle auth errors specifically
-      if (err.response && err.response.status === 401) {
-        setError("Authentication failed. Please log in again.");
-        // Optionally redirect to login page
-        // window.location.href = '/login';
-      } else if (err.response) {
-        console.error(
-          "Error response:",
-          err.response.status,
-          err.response.data
-        );
-        setError(
-          `Failed to load books (${err.response.status}): ${
-            err.response.data.message || "Please try again."
-          }`
-        );
-      } else if (err.request) {
-        console.error("No response received:", err.request);
-        setError(
-          "Server not responding. Please check your connection and try again."
-        );
+        setTimeout(() => logout(), 2000);
+      } else if (err.response?.status === 403) {
+        setError("You don't have permission to access this resource.");
       } else {
-        setError("Failed to load books: " + err.message);
+        const errorMessage =
+          err.response?.data?.message ||
+          "Failed to load books. Please try again.";
+        setError(errorMessage);
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
       }
     } finally {
       setLoading(false);
     }
   };
-
-  // Modify your useEffect to include token validation
-  useEffect(() => {
-    const validateAndFetch = async () => {
-      const isValid = await checkTokenValidity();
-      if (isValid) {
-        fetchBooks();
-      } else {
-        // Redirect to login page
-        // window.location.href = '/admin/login';
-      }
-    };
-
-    validateAndFetch();
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -250,36 +171,32 @@ const BookManagement = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!isAuthenticated || !currentUser) {
+      toast({
+        title: "Authentication Error",
+        description: "Please log in again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setSubmitting(true);
       setError(null);
 
-      const axiosInstance = authAxios();
-      if (!axiosInstance) {
-        setSubmitting(false);
-        return;
-      }
+      console.log(`${isEditing ? "Updating" : "Adding"} book:`, formData);
 
       let response;
-
       if (isEditing) {
-        // Update existing book
-        console.log("Updating book data:", formData);
-        response = await axiosInstance.put(
-          `/api/admin/books/${editBookId}`,
-          formData
-        );
-        console.log("Book updated successfully:", response.data);
+        response = await api.put(`/admin/books/${editBookId}`, formData);
         toast({
           title: "Success",
           description: "Book updated successfully!",
           variant: "default",
         });
       } else {
-        // Add new book
-        console.log("Submitting new book data:", formData);
-        response = await axiosInstance.post("/api/admin/books", formData);
-        console.log("Book added successfully:", response.data);
+        response = await api.post("/admin/books", formData);
         toast({
           title: "Success",
           description: "Book added successfully!",
@@ -287,71 +204,44 @@ const BookManagement = () => {
         });
       }
 
+      console.log(
+        `Book ${isEditing ? "updated" : "added"} successfully:`,
+        response.data
+      );
+
       // Reset form and refresh the book list
       resetForm();
       fetchBooks();
     } catch (err) {
       console.error(`Error ${isEditing ? "updating" : "adding"} book:`, err);
 
-      // Handle auth errors specifically
-      if (err.response && err.response.status === 401) {
-        toast({
-          title: "Authentication Error",
-          description: "Your session has expired. Please log in again.",
-          variant: "destructive",
-        });
-      } else if (err.response) {
-        console.error(
-          "Error response:",
-          err.response.status,
-          err.response.data
-        );
-        setError(
-          `Failed to ${isEditing ? "update" : "add"} book (${
-            err.response.status
-          }): ${err.response.data.message || "Please try again."}`
-        );
-        toast({
-          title: "Error",
-          description: `Failed to ${isEditing ? "update" : "add"} book. ${
-            err.response?.data?.message || "Please try again."
-          }`,
-          variant: "destructive",
-        });
-      } else if (err.request) {
-        setError(
-          "Server not responding. Please check your connection and try again."
-        );
-        toast({
-          title: "Error",
-          description: "Server not responding. Please try again later.",
-          variant: "destructive",
-        });
-      } else {
-        setError(
-          `Failed to ${isEditing ? "update" : "add"} book: ` + err.message
-        );
-        toast({
-          title: "Error",
-          description: `Failed to ${
-            isEditing ? "update" : "add"
-          } book. Please try again.`,
-          variant: "destructive",
-        });
+      let errorMessage = `Failed to ${isEditing ? "update" : "add"} book.`;
+
+      if (err.response?.status === 401) {
+        errorMessage = "Your session has expired. Please log in again.";
+        setTimeout(() => logout(), 2000);
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
       }
+
+      setError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleEdit = (book) => {
-    // Set form data with book details
     setFormData({
       title: book.title,
       author: book.author,
       isbn: book.isbn,
       genre: book.genre,
-      language: book.language || "English", // Handle books without language field
+      language: book.language || "English",
       publicationYear: book.publicationYear,
       publisher: book.publisher,
       description: book.description,
@@ -360,11 +250,8 @@ const BookManagement = () => {
       stockQuantity: book.stockQuantity,
     });
 
-    // Set editing state
     setIsEditing(true);
     setEditBookId(book._id);
-
-    // Scroll to form
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -373,60 +260,83 @@ const BookManagement = () => {
   };
 
   const handleDelete = async (bookId) => {
-    if (window.confirm("Are you sure you want to delete this book?")) {
-      try {
-        setLoading(true);
+    if (!window.confirm("Are you sure you want to delete this book?")) {
+      return;
+    }
 
-        const axiosInstance = authAxios();
-        if (!axiosInstance) {
-          setLoading(false);
-          return;
-        }
+    try {
+      setLoading(true);
+      console.log("Deleting book with ID:", bookId);
 
-        console.log("Deleting book with ID:", bookId);
-        await axiosInstance.delete(`/api/admin/books/${bookId}`);
+      await api.delete(`/admin/books/${bookId}`);
 
-        console.log("Book deleted successfully");
-        fetchBooks();
+      console.log("Book deleted successfully");
+      toast({
+        title: "Success",
+        description: "Book deleted successfully!",
+        variant: "default",
+      });
 
-        toast({
-          title: "Success",
-          description: "Book deleted successfully!",
-          variant: "default",
-        });
-      } catch (err) {
-        console.error("Error deleting book:", err);
+      fetchBooks();
+    } catch (err) {
+      console.error("Error deleting book:", err);
 
-        // Handle auth errors specifically
-        if (err.response && err.response.status === 401) {
-          setError("Authentication failed. Please log in again.");
-          toast({
-            title: "Authentication Error",
-            description: "Your session has expired. Please log in again.",
-            variant: "destructive",
-          });
-          // Optionally redirect to login
-          // window.location.href = '/login';
-        } else if (err.response) {
-          toast({
-            title: "Error",
-            description: `Failed to delete book (${err.response.status}): ${
-              err.response.data.message || "Please try again."
-            }`,
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: "Failed to delete book. Please try again.",
-            variant: "destructive",
-          });
-        }
-      } finally {
-        setLoading(false);
+      let errorMessage = "Failed to delete book.";
+
+      if (err.response?.status === 401) {
+        errorMessage = "Your session has expired. Please log in again.";
+        setTimeout(() => logout(), 2000);
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
       }
+
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Show loading screen while checking authentication
+  if (loading && !books.length) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-lg font-medium text-muted-foreground">
+            Loading book management...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show authentication error
+  if (!isAuthenticated || !currentUser) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Authentication Required</CardTitle>
+            <CardDescription>
+              Please log in to access the book management system.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              onClick={() => (window.location.href = "/admin/login")}
+              className="w-full"
+            >
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 space-y-8">
@@ -494,7 +404,7 @@ const BookManagement = () => {
                   value={formData.isbn}
                   onChange={handleChange}
                   required
-                  disabled={isEditing} // Disable ISBN editing to prevent conflicts
+                  disabled={isEditing}
                 />
                 {isEditing && (
                   <p className="text-xs text-muted-foreground">

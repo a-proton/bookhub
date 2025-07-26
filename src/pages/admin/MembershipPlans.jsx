@@ -1,7 +1,7 @@
 // src/pages/admin/MembershipPlans.jsx
 import React, { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, Check, X } from "lucide-react";
-import axios from "axios";
+import { useAuth } from "../../contexts/AuthContext";
 import AdminLayout from "./AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,8 +44,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+import { useToast } from "@/components/ui/use-toast";
+import { Toaster } from "@/components/ui/toaster";
 
 const MembershipPlansPage = () => {
   const [plans, setPlans] = useState([]);
@@ -55,6 +55,9 @@ const MembershipPlansPage = () => {
   const [planToDelete, setPlanToDelete] = useState(null);
   const [showPlanForm, setShowPlanForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+
+  const { currentUser, api, isAdmin } = useAuth();
+  const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -67,30 +70,54 @@ const MembershipPlansPage = () => {
     isActive: true,
   });
 
+  // Check for authentication first
   useEffect(() => {
-    fetchMembershipPlans();
-  }, []);
+    if (!currentUser && !loading) {
+      setError("Please log in to access this page");
+    } else if (currentUser && !isAdmin) {
+      setError("Unauthorized access. Admin privileges required.");
+    }
+  }, [currentUser, isAdmin, loading]);
 
   const fetchMembershipPlans = async () => {
+    if (!currentUser || !isAdmin) {
+      return;
+    }
+
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      const response = await axios.get(`${API_URL}/memberships/admin/plans`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setPlans(response.data);
+      console.log("Fetching membership plans...");
+
+      // Use the consistent endpoint with 's' in 'memberships'
+      const response = await api.get("/memberships/admin/plans");
+      console.log("Plans data:", response.data);
+      setPlans(response.data || []);
       setError(null);
     } catch (err) {
       console.error("Error fetching membership plans:", err);
-      setError(
-        "Failed to load membership plans. Please check your connection and try again."
-      );
+
+      if (err.response?.status === 401) {
+        setError("Your session has expired. Please log in again.");
+      } else if (err.response?.status === 403) {
+        setError("You do not have permission to view membership plans.");
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Failed to load membership plans. Please check your connection and try again."
+        );
+      }
+
+      setPlans([]);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (currentUser && isAdmin) {
+      fetchMembershipPlans();
+    }
+  }, [currentUser, isAdmin]);
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
@@ -178,23 +205,32 @@ const MembershipPlansPage = () => {
     if (!planToDelete) return;
 
     try {
-      const token = localStorage.getItem("token");
-      await axios.delete(
-        `${API_URL}/membership/admin/plans/${planToDelete._id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      // Fixed endpoint: use 'memberships' (with 's') consistently
+      await api.delete(`/memberships/admin/plans/${planToDelete._id}`);
+
+      toast({
+        title: "Success",
+        description: "Plan deleted successfully!",
+        variant: "default",
+      });
 
       // Refresh plans after deletion
       fetchMembershipPlans();
       setShowDeleteDialog(false);
       setPlanToDelete(null);
+      setError(null);
     } catch (err) {
       console.error("Error deleting plan:", err);
-      setError("Failed to delete plan. Please try again.");
+      const errorMessage =
+        err.response?.data?.message ||
+        "Failed to delete plan. Please try again.";
+      setError(errorMessage);
+
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
 
@@ -230,7 +266,6 @@ const MembershipPlansPage = () => {
     }
 
     try {
-      const token = localStorage.getItem("token");
       // Filter out empty benefits
       const dataToSubmit = {
         ...formData,
@@ -238,20 +273,22 @@ const MembershipPlansPage = () => {
       };
 
       if (isEditing) {
-        await axios.put(
-          `${API_URL}/membership/admin/plans/${formData._id}`,
-          dataToSubmit,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        // Fixed endpoint: use 'memberships' (with 's') consistently
+        await api.put(`/memberships/admin/plans/${formData._id}`, dataToSubmit);
+
+        toast({
+          title: "Success",
+          description: "Plan updated successfully!",
+          variant: "default",
+        });
       } else {
-        await axios.post(`${API_URL}/membership/admin/plans`, dataToSubmit, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+        // Fixed endpoint: use 'memberships' (with 's') consistently
+        await api.post("/memberships/admin/plans", dataToSubmit);
+
+        toast({
+          title: "Success",
+          description: "Plan created successfully!",
+          variant: "default",
         });
       }
 
@@ -262,9 +299,52 @@ const MembershipPlansPage = () => {
       setError(null);
     } catch (err) {
       console.error("Error saving plan:", err);
-      setError("Failed to save plan. Please try again.");
+      const errorMessage =
+        err.response?.data?.message || "Failed to save plan. Please try again.";
+      setError(errorMessage);
+
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+        <p className="text-lg font-medium text-muted-foreground">
+          Loading membership plans...
+        </p>
+      </div>
+    );
+  }
+
+  if (
+    error &&
+    (error.includes("Unauthorized") || error.includes("Please log in"))
+  ) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen p-6">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-2xl">Access Denied</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button
+              onClick={() => (window.location.href = "/admin/login")}
+              className="w-full"
+            >
+              Return to Login
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <AdminLayout>
@@ -282,14 +362,20 @@ const MembershipPlansPage = () => {
         </div>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 relative">
             {error}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute top-2 right-2"
+              onClick={() => setError(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
           </div>
         )}
 
-        {loading ? (
-          <div className="text-center py-10">Loading membership plans...</div>
-        ) : plans.length === 0 ? (
+        {plans.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-10 text-gray-500">
@@ -547,6 +633,8 @@ const MembershipPlansPage = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Toaster />
       </div>
     </AdminLayout>
   );

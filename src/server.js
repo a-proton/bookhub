@@ -280,14 +280,12 @@ app.get("/api/users/validate-token", async (req, res) => {
   }
 });
 
-const googleauthRoutes = express.Router();
-
 app.use("/api", messageRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/memberships", membershipRoutes);
 app.use("/api/membership", membershipPlanRoutes);
 app.use("/api/admin", adminRoutes);
-
+app.use("/api/messages", messageRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/rentals", rentalRoutes);
 
