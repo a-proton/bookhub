@@ -16,6 +16,7 @@
 - ⚡ **ShadCN UI** components for a clean, accessible, and responsive design
 - 🧾 **Admin Dashboard** (Manage books,membership plan and many more)
 - 📊 **Rental History **
+- Email feature to the users when the book is rented
 
 ---
 
@@ -52,5 +53,40 @@ npm i
 
 --- run npm install and npm run dev in one terminal to run frontend
 --- npm start in another terminal for backend
+
+
+
+
+
+
+Setup .env file like This
+
+
+# --- Backend Server Configuration ---
+PORT=5000
+
+# --- Database ---
+MONGODB_URI=
+# --- Authentication & JWT ---
+JWT_SECRET=
+JWT_REFRESH_SECRET=
+JWT_EXPIRE=
+
+# --- Admin Credentials ---
+ADMIN_EMAIL=
+ADMIN_PASSWORD=
+
+# --- URLs ---
+# The URL of your frontend, needed for CORS and redirects
+FRONTEND_URL=http://localhost:5173
+
+# --- SMTP Email Configuration ---
+# Your server uses these credentials to send emails
+EMAIL_HOST=
+EMAIL_PORT=
+EMAIL_SECURE=
+EMAIL_USER=
+EMAIL_PASSWORD=
+EMAIL_FROM=
 
 ```
