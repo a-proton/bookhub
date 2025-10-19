@@ -10,7 +10,7 @@ import User from "../../src/database/schema/userSchema.js";
 // --- Middleware and Service Imports ---
 // Import the single, standardized authentication middleware.
 import { isAuthenticated } from "../middleware/authMiddleware.js";
-import { sendRentalConfirmationEmail } from "../lib/emailService.js";
+import { sendRentalConfirmationEmail } from "../services/emailService.js";
 
 const router = express.Router();
 

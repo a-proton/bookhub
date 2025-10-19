@@ -1,4 +1,4 @@
-import { api } from "../contexts/AuthContext";
+import api from "./api";
 
 // Admin Service Functions
 export const adminService = {

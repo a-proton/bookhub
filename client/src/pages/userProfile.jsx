@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 // Import RentalHistory component
-import RentalHistory from "./RentalHistory"; // Adjust path as needed
+import RentalHistory from "./RentalHistory";
 // Shadcn UI Components
 import { Button } from "@/components/ui/button";
 import {

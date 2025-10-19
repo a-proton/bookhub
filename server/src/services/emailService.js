@@ -1,41 +1,69 @@
-
-import nodemailer from 'nodemailer';
-import dotenv from 'dotenv';
+import nodemailer from "nodemailer";
+import dotenv from "dotenv";
 
 dotenv.config();
 
- 
+// Create email transporter
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  host: process.env.EMAIL_HOST || "smtp.gmail.com",
   port: parseInt(process.env.EMAIL_PORT) || 587,
-  secure: process.env.EMAIL_SECURE === 'true',
+  secure: process.env.EMAIL_SECURE === "true",
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD,
+  },
+});
+
+// Verify transporter on startup
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ Email transporter error:", error);
+  } else {
+    console.log("✅ Email service ready");
   }
 });
 
+/**
+ * Send rental confirmation email
+ */
 export const sendRentalConfirmationEmail = async (user, rentals, books) => {
   try {
-   
-    const rentalItems = rentals.map((rental, index) => {
-      const book = books[index];
-      return `
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      console.warn("⚠️ Email credentials not configured - skipping email");
+      return { success: false, message: "Email not configured" };
+    }
+
+    const rentalItems = rentals
+      .map((rental, index) => {
+        const book = books[index];
+        return `
         <tr>
-          <td style="padding: 10px; border-bottom: 1px solid #eee;">${book.title}</td>
-          <td style="padding: 10px; border-bottom: 1px solid #eee;">${new Date(rental.startDate).toLocaleDateString()}</td>
-          <td style="padding: 10px; border-bottom: 1px solid #eee;">${new Date(rental.dueDate).toLocaleDateString()}</td>
-          <td style="padding: 10px; border-bottom: 1px solid #eee;">Rs.${rental.rentalPrice.toFixed(2)}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${
+            book.title
+          }</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${new Date(
+            rental.startDate
+          ).toLocaleDateString()}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">${new Date(
+            rental.dueDate
+          ).toLocaleDateString()}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #eee;">Rs.${rental.rentalPrice.toFixed(
+            2
+          )}</td>
         </tr>
       `;
-    }).join('');
- 
-    const totalPrice = rentals.reduce((sum, rental) => sum + rental.rentalPrice, 0);
- 
+      })
+      .join("");
+
+    const totalPrice = rentals.reduce(
+      (sum, rental) => sum + rental.rentalPrice,
+      0
+    );
+
     const mailOptions = {
       from: `"BookHub Rentals" <${process.env.EMAIL_USER}>`,
       to: user.email,
-      subject: 'Your BookHub Rental Confirmation',
+      subject: "Your BookHub Rental Confirmation",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #4F46E5; padding: 20px; text-align: center;">
@@ -62,7 +90,9 @@ export const sendRentalConfirmationEmail = async (user, rentals, books) => {
               <tfoot>
                 <tr>
                   <td colspan="3" style="padding: 10px; text-align: right; font-weight: bold;">Total:</td>
-                  <td style="padding: 10px; font-weight: bold;">Rs.${totalPrice.toFixed(2)}</td>
+                  <td style="padding: 10px; font-weight: bold;">Rs.${totalPrice.toFixed(
+                    2
+                  )}</td>
                 </tr>
               </tfoot>
             </table>
@@ -81,15 +111,46 @@ export const sendRentalConfirmationEmail = async (user, rentals, books) => {
             <p style="margin: 5px 0;">If you have any questions, please contact us at support@bookhub.com</p>
           </div>
         </div>
-      `
+      `,
     };
 
     // Send email
     const info = await transporter.sendMail(mailOptions);
-    console.log('Rental confirmation email sent:', info.messageId);
-    return info;
+    console.log("✅ Rental confirmation email sent:", info.messageId);
+    return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Error sending rental confirmation email:', error);
+    console.error("❌ Error sending rental confirmation email:", error);
     throw error;
   }
+};
+
+/**
+ * Send general email
+ */
+export const sendEmail = async ({ to, subject, text, html }) => {
+  try {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      console.warn("⚠️ Email credentials not configured");
+      return { success: false, message: "Email not configured" };
+    }
+
+    const info = await transporter.sendMail({
+      from: `"BookHub" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      text,
+      html,
+    });
+
+    console.log("✅ Email sent:", info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("❌ Error sending email:", error);
+    throw error;
+  }
+};
+
+export default {
+  sendRentalConfirmationEmail,
+  sendEmail,
 };

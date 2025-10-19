@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
 // Update this import to use the fixed service
-import { fetchDashboardStats } from "../../services/adminService";
+import { fetchDashboardStats } from "../../../../server/src/services/adminService.js";
 
 const AdminDashboard = () => {
   const { logout, user } = useAuth();
