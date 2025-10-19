@@ -1,8 +1,7 @@
 {
   "name": "bookhub-monorepo",
   "version": "1.0.0",
-  "private": true,
-  "type": "module",
+
   "scripts": {
     "install:client": "cd client && npm install",
     "install:server": "cd server && npm install",
@@ -12,7 +11,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npm run build",
-    "build": "npm run build:client && npm run build:server",
+   "build": "cd client && npm install && npm run build",
     "start": "cd server && npm start",
     "lint": "cd client && npm run lint"
   },
