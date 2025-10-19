@@ -36,3 +36,4 @@ build/
 # OS/Tooling
 Thumbs.db
 ehthumbs.db
+.vercel

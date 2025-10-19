@@ -19,4 +19,10 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    outDir: "dist",
+    rollupOptions: {
+      external: ["axios"], // 👈 prevent bundling axios (and fix Vercel’s Rollup error)
+    },
+  },
 });
