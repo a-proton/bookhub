@@ -38,7 +38,6 @@ app.use(
         "http://localhost:5174",
         "http://localhost:3000",
       ];
-
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -100,14 +99,14 @@ async function ensureDBConnection() {
   }
 }
 
+// Connect DB once when the Lambda starts
+await ensureDBConnection();
+
 // ==================== SERVERLESS HANDLER ====================
 
-const handler = serverless(async (req, res, next) => {
-  await ensureDBConnection();
-  return app(req, res, next);
-});
-
+const handler = serverless(app);
 export { handler };
+export default app;
 
 // ==================== LOCAL DEVELOPMENT MODE ====================
 

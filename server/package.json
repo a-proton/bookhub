@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "build": "echo 'No build step required for Node.js server'"
+    "build": "echo 'No build step required for Node.js server'",
+    "vercel-build": "echo 'Server has no build step'"
   },
   "dependencies": {
     "axios": "^1.7.9",

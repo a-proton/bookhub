@@ -4,7 +4,7 @@ import { Trophy } from "lucide-react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const MembershipPlansWidget = () => {
   const [plans, setPlans] = useState([]);
@@ -21,7 +21,7 @@ const MembershipPlansWidget = () => {
             Authorization: `Bearer ${token}`,
           },
         });
-        setPlans(response.data.filter(plan => plan.isActive));
+        setPlans(response.data.filter((plan) => plan.isActive));
         setError(null);
       } catch (err) {
         console.error("Error fetching plans:", err);
@@ -59,8 +59,8 @@ const MembershipPlansWidget = () => {
         <div className="p-6 text-center text-gray-500">
           <Trophy className="h-8 w-8 mx-auto mb-2 text-gray-400" />
           <p>No active membership plans found.</p>
-          <Link 
-            to="/admin/membership-plans" 
+          <Link
+            to="/admin/membership-plans"
             className="text-blue-500 hover:underline block mt-2"
           >
             Create a plan
@@ -69,11 +69,15 @@ const MembershipPlansWidget = () => {
       ) : (
         <div className="divide-y">
           {plans.slice(0, 3).map((plan) => (
-            <div key={plan._id} className="p-4 flex justify-between items-center">
+            <div
+              key={plan._id}
+              className="p-4 flex justify-between items-center"
+            >
               <div>
                 <h3 className="font-medium">{plan.name}</h3>
                 <p className="text-sm text-gray-500">
-                  {plan.currency}{plan.pricePerMonth}/month
+                  {plan.currency}
+                  {plan.pricePerMonth}/month
                 </p>
               </div>
               <div className="text-sm text-gray-500">

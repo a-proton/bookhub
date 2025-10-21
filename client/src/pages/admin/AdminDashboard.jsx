@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-
-// Update this import to use the fixed service
-import { fetchDashboardStats } from "../../../../server/src/services/adminService.js";
+import api from "@/lib/apiClient";
 
 const AdminDashboard = () => {
   const { logout, user } = useAuth();
@@ -25,7 +23,7 @@ const AdminDashboard = () => {
     }
 
     loadDashboardData();
-  }, [user, navigate]);
+  });
 
   const loadDashboardData = async () => {
     try {
@@ -33,7 +31,9 @@ const AdminDashboard = () => {
       setError(null);
       console.log("Loading dashboard data...");
 
-      const stats = await fetchDashboardStats();
+      // Fetch dashboard stats from API
+      const response = await api.get("/api/admin/dashboard-stats");
+      const stats = response.data;
       console.log("Dashboard stats received:", stats);
 
       setDashboardStats(stats);

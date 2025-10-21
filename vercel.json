@@ -2,22 +2,44 @@
   "version": 2,
   "builds": [
     {
-      "src": "server/src/server.js",
-      "use": "@vercel/node"
+      "src": "client/dist/**",
+      "use": "@vercel/static"
     },
     {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "client/dist"
-      }
+      "src": "server/src/server.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "server/src/server.js" },
-    { "src": "/(.*)", "dest": "/client/$1" }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  }
+    {
+      "src": "^/api/(.*)$",
+      "dest": "server/src/server.js",
+      "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Authorization"
+      }
+    },
+    {
+      "src": "^/assets/(.*)$",
+      "dest": "client/dist/assets/$1"
+    },
+    {
+      "src": "^/BookImage/(.*)$",
+      "dest": "client/dist/BookImage/$1"
+    },
+    {
+      "src": "^/Carouselimage/(.*)$",
+      "dest": "client/dist/Carouselimage/$1"
+    },
+    {
+      "src": "^/(.*\\.(js|css|json|ico|png|jpg|jpeg|svg|gif|woff|woff2|ttf|eot))$",
+      "dest": "client/dist/$1"
+    },
+    {
+      "src": "^/(.*)$",
+      "dest": "client/dist/index.html"
+    }
+  ]
 }
