@@ -14,12 +14,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate, Link } from "react-router-dom";
@@ -33,20 +33,48 @@ const SignUpPage = () => {
   const [alertMessage, setAlertMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   // Genre options
   const genreOptions = [
-    "Fiction", "Mystery", "Science Fiction", "Fantasy", "Romance", 
-    "Thriller", "Biography", "History", "Self-Help", "Business",
-    "Poetry", "Children's Books", "Young Adult", "Comics", "Art",
-    "Cooking", "Travel", "Philosophy", "Science", "Religion"
+    "Fiction",
+    "Mystery",
+    "Science Fiction",
+    "Fantasy",
+    "Romance",
+    "Thriller",
+    "Biography",
+    "History",
+    "Self-Help",
+    "Business",
+    "Poetry",
+    "Children's Books",
+    "Young Adult",
+    "Comics",
+    "Art",
+    "Cooking",
+    "Travel",
+    "Philosophy",
+    "Science",
+    "Religion",
   ];
 
   // Language options
   const languageOptions = [
-    "English", "Spanish", "French", "German", "Chinese", 
-    "Japanese", "Korean", "Russian", "Arabic", "Portuguese",
-    "Italian", "Hindi", "Bengali", "Turkish", "Vietnamese"
+    "English",
+    "Spanish",
+    "French",
+    "German",
+    "Chinese",
+    "Japanese",
+    "Korean",
+    "Russian",
+    "Arabic",
+    "Portuguese",
+    "Italian",
+    "Hindi",
+    "Bengali",
+    "Turkish",
+    "Vietnamese",
   ];
 
   const [formData, setFormData] = useState({
@@ -66,12 +94,10 @@ const SignUpPage = () => {
     openToRecommendations: true,
   });
 
-   
-
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    if (type === 'checkbox') {
+
+    if (type === "checkbox") {
       setFormData({ ...formData, [name]: checked });
     } else {
       setFormData({ ...formData, [name]: value });
@@ -84,16 +110,16 @@ const SignUpPage = () => {
 
   const handleMultiSelect = (item, fieldName) => {
     const current = [...formData[fieldName]];
-    
+
     if (current.includes(item)) {
       setFormData({
         ...formData,
-        [fieldName]: current.filter(i => i !== item)
+        [fieldName]: current.filter((i) => i !== item),
       });
     } else {
       setFormData({
         ...formData,
-        [fieldName]: [...current, item]
+        [fieldName]: [...current, item],
       });
     }
   };
@@ -135,7 +161,7 @@ const SignUpPage = () => {
       setIsSuccess(false);
       return false;
     }
-    
+
     return true;
   };
 
@@ -145,9 +171,9 @@ const SignUpPage = () => {
       setShowAlert(true);
       return;
     }
-  
+
     setIsLoading(true);
-    
+
     try {
       // Format the data for the API
       const userData = {
@@ -162,19 +188,24 @@ const SignUpPage = () => {
         favoriteGenres: formData.favoriteGenres,
         preferredBookFormat: formData.preferredBookFormat,
         rentalPreferences: {
-          booksPerMonth: formData.booksPerMonth ? parseInt(formData.booksPerMonth) : 1,
+          booksPerMonth: formData.booksPerMonth
+            ? parseInt(formData.booksPerMonth)
+            : 1,
           prefersTrending: formData.prefersTrending,
-          openToRecommendations: formData.openToRecommendations
-        }
+          openToRecommendations: formData.openToRecommendations,
+        },
       };
-      
+
       // Make API call to register user
-      const response = await axios.post(`http://localhost:5000/api/users/signup`, userData);
-      
+      const response = await axios.post(
+        `http://localhost:3000/api/users/signup`,
+        userData
+      );
+
       setIsSuccess(true);
       setAlertMessage("Account created successfully! You can now login.");
       setShowAlert(true);
-      
+
       // Reset form after successful submission
       setFormData({
         fullName: "",
@@ -192,15 +223,18 @@ const SignUpPage = () => {
         prefersTrending: false,
         openToRecommendations: true,
       });
-      
+
       // Redirect to login page after alert is closed
       setTimeout(() => {
         navigate("/login");
       }, 2000);
-      
     } catch (error) {
       setIsSuccess(false);
-      if (error.response && error.response.data && error.response.data.message) {
+      if (
+        error.response &&
+        error.response.data &&
+        error.response.data.message
+      ) {
         setAlertMessage(error.response.data.message);
       } else {
         setAlertMessage("Failed to create account. Please try again later.");
@@ -221,12 +255,8 @@ const SignUpPage = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="pb-8">
-          <form onSubmit={handleSubmit}> 
-            <div className="relative mb-6">
-               
-              
-              
-            </div>
+          <form onSubmit={handleSubmit}>
+            <div className="relative mb-6"></div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left Column - Account Details */}
@@ -342,7 +372,9 @@ const SignUpPage = () => {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                       className="absolute right-3 top-3 text-gray-400"
                       disabled={isLoading}
                     >
@@ -357,7 +389,9 @@ const SignUpPage = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="age" className="text-purple-900">Age</Label>
+                    <Label htmlFor="age" className="text-purple-900">
+                      Age
+                    </Label>
                     <Input
                       id="age"
                       name="age"
@@ -370,10 +404,18 @@ const SignUpPage = () => {
                       max="120"
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
-                    <Label htmlFor="gender" className="text-purple-900">Gender</Label>
-                    <Select name="gender" value={formData.gender} onValueChange={(value) => handleSelectChange("gender", value)}>
+                    <Label htmlFor="gender" className="text-purple-900">
+                      Gender
+                    </Label>
+                    <Select
+                      name="gender"
+                      value={formData.gender}
+                      onValueChange={(value) =>
+                        handleSelectChange("gender", value)
+                      }
+                    >
                       <SelectTrigger className="h-12">
                         <SelectValue placeholder="Select gender" />
                       </SelectTrigger>
@@ -381,7 +423,9 @@ const SignUpPage = () => {
                         <SelectItem value="male">Male</SelectItem>
                         <SelectItem value="female">Female</SelectItem>
                         <SelectItem value="non-binary">Non-binary</SelectItem>
-                        <SelectItem value="prefer not to say">Prefer not to say</SelectItem>
+                        <SelectItem value="prefer not to say">
+                          Prefer not to say
+                        </SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -389,7 +433,9 @@ const SignUpPage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="location" className="text-purple-900">Location</Label>
+                  <Label htmlFor="location" className="text-purple-900">
+                    Location
+                  </Label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
@@ -408,23 +454,35 @@ const SignUpPage = () => {
               {/* Right Column - Reading Preferences */}
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-purple-900">Preferred Language(s)</Label>
+                  <Label className="text-purple-900">
+                    Preferred Language(s)
+                  </Label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4 border rounded-md max-h-32 overflow-y-auto">
                     {languageOptions.map((language) => (
-                      <div key={language} className="flex items-center space-x-2">
+                      <div
+                        key={language}
+                        className="flex items-center space-x-2"
+                      >
                         <Checkbox
                           id={`language-${language}`}
-                          checked={formData.preferredLanguages.includes(language)}
-                          onCheckedChange={() => handleMultiSelect(language, "preferredLanguages")}
+                          checked={formData.preferredLanguages.includes(
+                            language
+                          )}
+                          onCheckedChange={() =>
+                            handleMultiSelect(language, "preferredLanguages")
+                          }
                         />
-                        <label htmlFor={`language-${language}`} className="text-sm">
+                        <label
+                          htmlFor={`language-${language}`}
+                          className="text-sm"
+                        >
                           {language}
                         </label>
                       </div>
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label className="text-purple-900">Favorite Genres</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4 border rounded-md max-h-40 overflow-y-auto">
@@ -433,7 +491,9 @@ const SignUpPage = () => {
                         <Checkbox
                           id={`genre-${genre}`}
                           checked={formData.favoriteGenres.includes(genre)}
-                          onCheckedChange={() => handleMultiSelect(genre, "favoriteGenres")}
+                          onCheckedChange={() =>
+                            handleMultiSelect(genre, "favoriteGenres")
+                          }
                         />
                         <label htmlFor={`genre-${genre}`} className="text-sm">
                           {genre}
@@ -442,12 +502,19 @@ const SignUpPage = () => {
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
-                  <Label htmlFor="preferredBookFormat" className="text-purple-900">Preferred Book Format</Label>
-                  <Select 
-                    value={formData.preferredBookFormat} 
-                    onValueChange={(value) => handleSelectChange("preferredBookFormat", value)}
+                  <Label
+                    htmlFor="preferredBookFormat"
+                    className="text-purple-900"
+                  >
+                    Preferred Book Format
+                  </Label>
+                  <Select
+                    value={formData.preferredBookFormat}
+                    onValueChange={(value) =>
+                      handleSelectChange("preferredBookFormat", value)
+                    }
                   >
                     <SelectTrigger className="h-12">
                       <SelectValue placeholder="Select preferred format" />
@@ -461,15 +528,21 @@ const SignUpPage = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-4 pt-4 border-t">
-                  <h3 className="font-semibold text-purple-900">Reading Preferences</h3>
-                  
+                  <h3 className="font-semibold text-purple-900">
+                    Reading Preferences
+                  </h3>
+
                   <div className="space-y-2">
-                    <Label htmlFor="booksPerMonth" className="text-purple-900">How many books do you want to rent per month?</Label>
-                    <Select 
-                      value={formData.booksPerMonth} 
-                      onValueChange={(value) => handleSelectChange("booksPerMonth", value)}
+                    <Label htmlFor="booksPerMonth" className="text-purple-900">
+                      How many books do you want to rent per month?
+                    </Label>
+                    <Select
+                      value={formData.booksPerMonth}
+                      onValueChange={(value) =>
+                        handleSelectChange("booksPerMonth", value)
+                      }
                     >
                       <SelectTrigger className="h-12">
                         <SelectValue placeholder="Select number of books" />
@@ -483,31 +556,40 @@ const SignUpPage = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="prefersTrending"
                       name="prefersTrending"
                       checked={formData.prefersTrending}
-                      onCheckedChange={(checked) => 
-                        setFormData({...formData, prefersTrending: checked})
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, prefersTrending: checked })
                       }
                     />
-                    <Label htmlFor="prefersTrending" className="text-sm text-purple-900">
+                    <Label
+                      htmlFor="prefersTrending"
+                      className="text-sm text-purple-900"
+                    >
                       I prefer trending titles over hidden gems
                     </Label>
                   </div>
-                  
+
                   <div className="flex items-center space-x-2">
                     <Checkbox
                       id="openToRecommendations"
                       name="openToRecommendations"
                       checked={formData.openToRecommendations}
-                      onCheckedChange={(checked) => 
-                        setFormData({...formData, openToRecommendations: checked})
+                      onCheckedChange={(checked) =>
+                        setFormData({
+                          ...formData,
+                          openToRecommendations: checked,
+                        })
                       }
                     />
-                    <Label htmlFor="openToRecommendations" className="text-sm text-purple-900">
+                    <Label
+                      htmlFor="openToRecommendations"
+                      className="text-sm text-purple-900"
+                    >
                       I am open to recommendations based on similar readers
                     </Label>
                   </div>
@@ -523,7 +605,7 @@ const SignUpPage = () => {
               >
                 {isLoading ? "Creating Account..." : "Sign Up"}
               </Button>
-              
+
               <div className="text-center text-sm text-purple-900">
                 Already have an account?{" "}
                 <Link

@@ -80,7 +80,6 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// FIXED:   "/dashboard-stats"
 router.get("/dashboard-stats", isAdmin, async (req, res) => {
   try {
     // Import Book model here to avoid circular dependency issues

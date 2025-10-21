@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-// Import RentalHistory component
 import RentalHistory from "./RentalHistory";
+
 // Shadcn UI Components
 import { Button } from "@/components/ui/button";
 import {
@@ -45,13 +45,8 @@ import {
 } from "lucide-react";
 
 const Profile = () => {
-  const {
-    currentUser,
-    userPreferences,
-    updateUserProfile,
-    fetchUserData,
-    API_URL,
-  } = useAuth();
+  const { currentUser, fetchUserData, updateUserProfile, API_URL } = useAuth();
+
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
@@ -74,15 +69,14 @@ const Profile = () => {
     favoriteGenres: [],
   });
 
-  // Debug logging to identify state changes
+  // Debug logging
   useEffect(() => {
     console.group("Profile Component Data");
     console.log("currentUser:", currentUser);
-    console.log("userPreferences:", userPreferences);
     console.log("dataLoading:", dataLoading);
     console.log("dataFetched:", dataFetched);
     console.groupEnd();
-  }, [currentUser, userPreferences, dataLoading, dataFetched]);
+  }, [currentUser, dataLoading, dataFetched]);
 
   // Check for activeTab in navigation state
   useEffect(() => {
@@ -91,65 +85,29 @@ const Profile = () => {
     }
   }, [location.state]);
 
-  // Define API_URL with fallback
-  const VITE_API_BASE_URL = API_URL || "http://localhost:3000/api";
-
-  // Separate function to fetch user preferences
-  const fetchUserPreferences = useCallback(async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        console.error("No token found");
-        return;
-      }
-
-      console.log(
-        "Fetching user preferences from:",
-        `${VITE_API_BASE_URL}/users/validate-token`
-      );
-      const response = await fetch(
-        `${VITE_API_BASE_URL}/users/validate-token`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log("Fetched user data with preferences:", data);
-        // The user data should include preferences from your backend
-      } else {
-        console.error("Failed to fetch user data:", response.status);
-      }
-    } catch (error) {
-      console.error("Error fetching user preferences:", error);
-    }
-  }, [VITE_API_BASE_URL]);
-
-  // Improved loadUserData function
+  // Load user data
   const loadUserData = useCallback(async () => {
-    if (dataFetched && retryCount === 0) return; // Skip if data has already been fetched and not retrying
+    if (dataFetched && retryCount === 0) return;
 
     setDataLoading(true);
     try {
       console.log("Starting to load user data...");
 
-      // Fetch user data if the function exists
-      if (typeof fetchUserData === "function") {
-        console.log("Calling fetchUserData...");
-        await fetchUserData();
-        console.log("User data after fetch:", currentUser);
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("No token found");
+        setDataLoading(false);
+        return;
       }
 
-      // Also try to fetch preferences separately
-      await fetchUserPreferences();
+      // Call fetchUserData from context
+      if (typeof fetchUserData === "function") {
+        console.log("Calling fetchUserData from context...");
+        await fetchUserData();
+      }
 
-      setDataFetched(true); // Mark data as fetched
-      setRetryCount(0); // Reset retry count on success
+      setDataFetched(true);
+      setRetryCount(0);
     } catch (error) {
       console.error("Error fetching user data:", error);
       toast({
@@ -160,60 +118,43 @@ const Profile = () => {
     } finally {
       setDataLoading(false);
     }
-  }, [
-    fetchUserData,
-    fetchUserPreferences,
-    currentUser,
-    toast,
-    dataFetched,
-    retryCount,
-  ]);
+  }, [fetchUserData, toast, dataFetched, retryCount]);
 
-  // Retry function for manual refresh
+  // Retry function
   const retryFetchUserData = useCallback(() => {
     setDataFetched(false);
     setRetryCount((prev) => prev + 1);
     loadUserData();
   }, [loadUserData]);
 
-  // Use the memoized function in useEffect
+  // Initial load
   useEffect(() => {
     loadUserData();
-
-    // Reset rental component key when user changes
     setRentalKey(Date.now());
   }, [loadUserData]);
 
-  // Force reload of rental history when switching to rentals tab
+  // Force reload rental history when switching tabs
   useEffect(() => {
     if (activeTab === "rentals") {
       setRentalKey(Date.now());
     }
   }, [activeTab]);
 
-  // Update form data when user data or preferences change
+  // Update form data when currentUser changes
   useEffect(() => {
-    console.log(
-      "Updating form data - currentUser:",
-      currentUser,
-      "userPreferences:",
-      userPreferences
-    );
+    console.log("Updating form data - currentUser:", currentUser);
 
-    // Only update form data when we actually have user data
-    if (currentUser || userPreferences) {
-      console.log("Updating form data from user/preferences");
+    if (currentUser) {
+      console.log("Updating form data from currentUser");
 
-      // Helper function to ensure value is an array
+      // Helper to ensure array
       const ensureArray = (value) => {
         if (Array.isArray(value)) return value;
         if (typeof value === "string") {
-          // Handle both comma-separated and JSON string formats
           try {
             const parsed = JSON.parse(value);
             if (Array.isArray(parsed)) return parsed;
           } catch (e) {
-            // If JSON parsing fails, try comma separation
             return value
               .split(",")
               .map((item) => item.trim())
@@ -224,24 +165,20 @@ const Profile = () => {
       };
 
       const newFormData = {
-        fullName: currentUser?.fullName || "",
-        email: currentUser?.email || "",
-        phone: currentUser?.phone || "",
-        age: userPreferences?.age || currentUser?.age || "",
-        gender: userPreferences?.gender || currentUser?.gender || "",
-        location: userPreferences?.location || currentUser?.location || "",
-        preferredLanguages: ensureArray(
-          userPreferences?.preferredLanguages || currentUser?.preferredLanguages
-        ),
-        favoriteGenres: ensureArray(
-          userPreferences?.favoriteGenres || currentUser?.favoriteGenres
-        ),
+        fullName: currentUser.fullName || "",
+        email: currentUser.email || "",
+        phone: currentUser.phone || "",
+        age: currentUser.age || "",
+        gender: currentUser.gender || "",
+        location: currentUser.location || "",
+        preferredLanguages: ensureArray(currentUser.preferredLanguages),
+        favoriteGenres: ensureArray(currentUser.favoriteGenres),
       };
 
       console.log("New form data:", newFormData);
       setFormData(newFormData);
     }
-  }, [currentUser, userPreferences]);
+  }, [currentUser]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -258,17 +195,14 @@ const Profile = () => {
     }));
   };
 
-  // Improved handleArrayChange function that properly handles arrays
   const handleArrayChange = (e) => {
     const { name, value } = e.target;
 
-    // Always convert to array, properly split by commas
     const arrayValue = value
       .split(",")
       .map((item) => item.trim())
       .filter((item) => item !== "");
 
-    console.log(`${name} before:`, formData[name]);
     console.log(`${name} updated to:`, arrayValue);
 
     setFormData((prev) => ({
@@ -281,7 +215,6 @@ const Profile = () => {
     setActiveTab(value);
   };
 
-  // Improved handleSubmit function that ensures arrays are properly sent
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -289,47 +222,26 @@ const Profile = () => {
     console.log("Submitting form data:", formData);
 
     try {
-      const token = localStorage.getItem("token");
-      console.log(
-        "Updating profile with API URL:",
-        `${VITE_API_BASE_URL}/auth/update-profile`
-      );
-
-      // Update user profile
-      const response = await fetch(`${VITE_API_BASE_URL}/auth/update-profile`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          fullName: formData.fullName,
-          phone: formData.phone,
-          age: formData.age,
-          gender: formData.gender,
-          location: formData.location,
-          // Make sure these are arrays
-          preferredLanguages: Array.isArray(formData.preferredLanguages)
-            ? formData.preferredLanguages
-            : [],
-          favoriteGenres: Array.isArray(formData.favoriteGenres)
-            ? formData.favoriteGenres
-            : [],
-        }),
+      // Use updateUserProfile from context
+      const result = await updateUserProfile({
+        fullName: formData.fullName,
+        phone: formData.phone,
+        age: formData.age,
+        gender: formData.gender,
+        location: formData.location,
+        preferredLanguages: Array.isArray(formData.preferredLanguages)
+          ? formData.preferredLanguages
+          : [],
+        favoriteGenres: Array.isArray(formData.favoriteGenres)
+          ? formData.favoriteGenres
+          : [],
       });
 
-      let result;
-      try {
-        result = await response.json();
-      } catch (jsonError) {
-        console.error("JSON parsing error:", jsonError);
-        result = { message: "Invalid server response" };
-      }
-
-      if (response.ok) {
-        // After successful profile update, refresh recommendations
+      if (result.success) {
+        // Trigger recommendations refresh
         try {
-          await fetch(`${VITE_API_BASE_URL}/books/refresh-recommendations`, {
+          const token = localStorage.getItem("token");
+          await fetch(`${API_URL}/books/refresh-recommendations`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
@@ -338,7 +250,6 @@ const Profile = () => {
           console.log("Recommendations refresh triggered");
         } catch (refreshErr) {
           console.error("Failed to refresh recommendations:", refreshErr);
-          // Continue with profile update flow even if recommendation refresh fails
         }
 
         toast({
@@ -346,9 +257,9 @@ const Profile = () => {
           description:
             "Your profile information has been updated successfully. Book recommendations will be refreshed on your next visit to the home page.",
         });
+
         setIsEditing(false);
-        // Refresh user data
-        setDataFetched(false); // Force refetch
+        setDataFetched(false);
         await loadUserData();
       } else {
         toast({
@@ -401,15 +312,15 @@ const Profile = () => {
     );
   }
 
-  // Get user initial for avatar - with safer access patterns
+  // Get user initial for avatar
   const userInitial = currentUser?.fullName
     ? currentUser.fullName.charAt(0).toUpperCase()
     : currentUser?.email
     ? currentUser.email.charAt(0).toUpperCase()
     : "U";
 
-  // Helper function to safely get array data for display
-  const getArrayData = (preferenceField, userField) => {
+  // Helper to safely get array data
+  const getArrayData = (field) => {
     const ensureArray = (value) => {
       if (Array.isArray(value)) return value;
       if (typeof value === "string") {
@@ -426,17 +337,11 @@ const Profile = () => {
       return [];
     };
 
-    const prefData = ensureArray(userPreferences?.[preferenceField]);
-    const userData = ensureArray(currentUser?.[userField]);
-
-    return prefData.length > 0 ? prefData : userData;
+    return ensureArray(currentUser?.[field]);
   };
 
-  const displayLanguages = getArrayData(
-    "preferredLanguages",
-    "preferredLanguages"
-  );
-  const displayGenres = getArrayData("favoriteGenres", "favoriteGenres");
+  const displayLanguages = getArrayData("preferredLanguages");
+  const displayGenres = getArrayData("favoriteGenres");
 
   return (
     <div className="container mx-auto p-4 mt-8 max-w-4xl">
@@ -542,25 +447,21 @@ const Profile = () => {
                 <div className="space-y-2">
                   <Label className="text-sm text-gray-500">Age</Label>
                   <div className="font-medium">
-                    {userPreferences?.age || currentUser?.age || "Not provided"}
+                    {currentUser?.age || "Not provided"}
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-sm text-gray-500">Gender</Label>
                   <div className="font-medium capitalize">
-                    {userPreferences?.gender ||
-                      currentUser?.gender ||
-                      "Not provided"}
+                    {currentUser?.gender || "Not provided"}
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-sm text-gray-500">Location</Label>
                   <div className="font-medium">
-                    {userPreferences?.location ||
-                      currentUser?.location ||
-                      "Not provided"}
+                    {currentUser?.location || "Not provided"}
                   </div>
                 </div>
               </div>
@@ -629,7 +530,6 @@ const Profile = () => {
           </div>
         </TabsContent>
 
-        {/* Updated Rentals Tab - Now using the RentalHistory component */}
         <TabsContent value="rentals" className="p-6">
           <RentalHistory key={rentalKey} />
         </TabsContent>
@@ -639,7 +539,7 @@ const Profile = () => {
             <ShieldCheck className="h-12 w-12 text-purple-400 mx-auto mb-4" />
             <h3 className="text-xl font-medium mb-2">Membership Details</h3>
             <p className="text-gray-500 mb-6">
-              You don't have an active membership.
+              You donot have an active membership.
             </p>
             <Button onClick={() => navigate("/MembershipPage")}>
               View Membership Plans
@@ -791,36 +691,6 @@ const Profile = () => {
         </DialogContent>
       </Dialog>
 
-      {process.env.NODE_ENV !== "production" && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <Button
-            variant="outline"
-            size="sm"
-            className="bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200"
-            onClick={() => {
-              console.log("Current API URL:", VITE_API_BASE_URL);
-              console.log("Auth Context API_URL:", API_URL || "Not available");
-              console.log("Current user state:", currentUser);
-              console.log("User preferences:", userPreferences);
-              console.log("Form data:", formData);
-              console.log("Display languages:", displayLanguages);
-              console.log("Display genres:", displayGenres);
-              console.log("Auth context values:", {
-                currentUser,
-                userPreferences,
-                API_URL,
-              });
-
-              toast({
-                title: "Debug Info",
-                description: "Check the console for debug information",
-              });
-            }}
-          >
-            Debug
-          </Button>
-        </div>
-      )}
       <Toaster />
     </div>
   );

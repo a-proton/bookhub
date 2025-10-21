@@ -61,8 +61,8 @@ app.get("/api/health", (req, res) => {
     environment: process.env.NODE_ENV || "development",
   });
 });
-app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/admin/books", adminBookRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/memberships", membershipRoutes);
