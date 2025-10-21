@@ -63,10 +63,6 @@ export function RecommendationProvider({ children }) {
             Array.isArray(parsed.data) &&
             parsed.data.length > 0
           ) {
-            console.log(
-              "Loaded recommendations from cache:",
-              parsed.data.length
-            );
             setTopPicks([...parsed.data]);
             setLastRefreshed(new Date(parsed.timestamp));
             initialLoadComplete.current = true;
@@ -116,11 +112,6 @@ export function RecommendationProvider({ children }) {
       // CRITICAL FIX: Implement cooldown between fetches
       const now = Date.now();
       if (!force && now - lastFetchTime.current < fetchCooldown) {
-        console.log(
-          `Fetch cooldown active (${(now - lastFetchTime.current) / 1000}s < ${
-            fetchCooldown / 1000
-          }s), skipping request`
-        );
         return [...topPicks];
       }
 
@@ -140,7 +131,6 @@ export function RecommendationProvider({ children }) {
         topPicks &&
         topPicks.length > 0
       ) {
-        console.log("Using cached recommendations, count:", topPicks.length);
         return [...topPicks];
       }
 

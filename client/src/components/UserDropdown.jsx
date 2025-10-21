@@ -66,12 +66,8 @@ const UserDropdown = () => {
     };
   }, []);
 
-  // Debug user info
-  console.log("UserDropdown received user:", currentUser);
-
   // If no user, don't render dropdown
   if (!currentUser) {
-    console.log("No currentUser in UserDropdown");
     return null;
   }
 

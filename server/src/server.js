@@ -33,10 +33,8 @@ app.use(
   cors({
     origin: function (origin, callback) {
       const allowedOrigins = [
-        process.env.CLIENT_URL || "http://localhost:5173",
         "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:3000",
+        "https://bookhubrentalplatform.vercel.app",
       ];
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
@@ -95,7 +93,6 @@ async function ensureDBConnection() {
   if (!isConnected) {
     await connectDB();
     isConnected = true;
-    console.log("✅ MongoDB connected");
   }
 }
 

@@ -3,7 +3,7 @@
 import express from "express";
 import MembershipPlan from "../database/schema/membershipPlans.js";
 import Membership from "../database/schema/membershipSchema.js";
-import MembershipApplication from "../database/index.js";
+import MembershipApplication from "../database/schema/membershipApplicationschema.js";
 import { isAdmin, isAuthenticated } from "../middleware/authMiddleware.js";
 
 const router = express.Router();

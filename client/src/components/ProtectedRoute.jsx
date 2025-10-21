@@ -20,19 +20,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
     console.error("Error parsing local user data:", error);
   }
 
-  // Debugging information
-  console.log("ProtectedRoute check:", {
-    path: location.pathname,
-    isAuthenticated,
-    userRole: currentUser?.role,
-    localUserRole: localUser?.role,
-    requireAdmin,
-    isAdmin: currentUser?.role === "admin" || localUser?.role === "admin",
-    hasToken: !!hasToken,
-    hasUserData: !!hasUserData,
-    loading,
-  });
-
   // If still loading and we don't have basic token/user data, show loading
   if (loading && (!hasToken || !hasUserData)) {
     return (

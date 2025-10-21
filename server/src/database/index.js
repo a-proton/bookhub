@@ -4,7 +4,7 @@ import User from "./schema/userSchema.js";
 import Book from "./schema/bookSchema.js";
 import Rental from "./schema/rentalSchema.js";
 import Membership from "./schema/membershipSchema.js";
-import MembershipApplication from "./schema/membershipApplicationSchema.js";
+import MembershipApplication from "./schema/membershipApplicationschema.js";
 import Message from "./schema/messageSchema.js";
 import MembershipPlan from "./schema/membershipPlans.js";
 dotenv.config();

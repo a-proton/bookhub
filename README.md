@@ -1,92 +1,202 @@
 # 📚 BookHub - Book Rental Platform
 
-**BookHub** is a modern and user-friendly **Book Rental Platform** built using the **MERN stack (MongoDB, Express, React, Node.js)** along with **ShadCN UI components**. The platform allows users to browse, rent, and return books seamlessly, with a personalized recommendation system that suggests books based on user preferences provided during sign-up.
+**BookHub** is a modern and user-friendly **Book Rental Platform** built using the **MERN stack (MongoDB, Express, React, Node.js)** with **ShadCN/UI** for a clean, responsive interface.  
+It allows users to browse, rent, and return books seamlessly — complete with an intelligent recommendation system that suggests books based on each user’s preferences.
+
+🔗 **Live Demo:** [https://bookhubrentalplatform.vercel.app/](https://bookhubrentalplatform.vercel.app/)
 
 ---
 
 ## 🚀 Features
 
-- 🔐 **User Authentication & Authorization** (Login / Register)
-- 📚 **Browse & Search Books**
-- 📖 **Rent & Return Books**
-- 🧠 **Smart Recommendations** based on:
+- 🔐 **Authentication & Authorization** — Secure user login/register using JWT
+- 📚 **Browse, Search & Filter Books**
+- 📖 **Rent and Return Books**
+- 🧠 **Smart Recommendation System** based on:
   - Genre preferences
   - Age group
-  - Reading history (if any)
-- ⚡ **ShadCN UI** components for a clean, accessible, and responsive design
-- 🧾 **Admin Dashboard** (Manage books,membership plan and many more)
-- 📊 **Rental History **
-- Email feature to the users when the book is rented
+  - Reading history
+- ⚡ **Modern UI** built with ShadCN components (Tailwind + Radix)
+- 🧾 **Admin Dashboard** to manage:
+  - Books
+  - Membership Plans
+  - Users & Rentals
+- 📊 **View Rental History**
+- 📧 **Automated Email Notifications** when books are rented
 
 ---
 
-## 🛠 Tech Stack
+## 🛠️ Tech Stack
 
-| Technology     | Description                                                                     |
-| -------------- | ------------------------------------------------------------------------------- |
-| **MongoDB**    | NoSQL database to store user, book, and rental data                             |
-| **Express.js** | Web framework for Node.js                                                       |
-| **React.js**   | Frontend library for building the user interface                                |
-| **Node.js**    | Backend runtime environment                                                     |
-| **ShadCN/UI**  | Modern, accessible, and reusable UI components built on Radix UI + Tailwind CSS |
+| Layer        | Technology Description                    |
+| ------------ | ----------------------------------------- |
+| **Frontend** | React.js (Vite) + ShadCN/UI + TailwindCSS |
+| **Backend**  | Node.js + Express.js + MongoDB            |
+| **Database** | MongoDB Atlas                             |
+| **Auth**     | JWT-based Authentication                  |
+| **Email**    | Nodemailer (SMTP)                         |
+| **Hosting**  | Vercel (Frontend + Serverless Backend)    |
 
 ---
 
-## 🔄 Recommendation System
+## 🧠 Recommendation Engine
 
-The recommendation engine uses user data captured during the **sign-up process**, such as:
+The system provides dynamic recommendations based on user preferences gathered during **sign-up**, including:
 
 - Favorite genres
 - Preferred reading language
 - Age group
 
-This data is analyzed to provide **smart, dynamic recommendations** tailored to each user.
+It also learns from user history to refine future recommendations.
 
-## 🧪 Setup Instructions
+---
 
-### 1. Clone the Repository
+## 🧩 Project Structure
 
-```bash
+\`\`\`
+bookhub/
+├── client/ # React frontend (Vite + ShadCN)
+│ ├── src/
+│ ├── public/
+│ └── package.json
+│
+├── server/ # Express backend (Node.js)
+│ ├── src/
+│ │ ├── api/
+│ │ ├── database/
+│ │ ├── middleware/
+│ │ └── server.js
+│ └── package.json
+│
+├── vercel.json # Vercel configuration for serverless deployment
+└── README.md
+\`\`\`
+
+---
+
+## 🧪 Setup Instructions (Local Development)
+
+### 1️⃣ Clone the Repository
+
+\`\`\`bash
 git clone https://github.com/a-proton/bookhub.git
 cd bookhub
-npm i
+\`\`\`
 
---- run npm install and npm run dev in one terminal to run frontend
---- npm start in another terminal for backend
+---
 
+### 2️⃣ Setup Environment Variables
 
+Create a `.env` file inside **`server/`**:
 
+\`\`\`bash
 
+# --- Backend Configuration ---
 
-
-Setup .env file like This
-
-
-# --- Backend Server Configuration ---
 PORT=5000
 
 # --- Database ---
-MONGODB_URI=
-# --- Authentication & JWT ---
-JWT_SECRET=
-JWT_REFRESH_SECRET=
-JWT_EXPIRE=
+
+MONGODB_URI=your_mongodb_connection_string
+
+# --- Authentication ---
+
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_jwt_refresh_secret
+JWT_EXPIRE=7d
 
 # --- Admin Credentials ---
-ADMIN_EMAIL=
-ADMIN_PASSWORD=
+
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=your_admin_password
 
 # --- URLs ---
-# The URL of your frontend, needed for CORS and redirects
+
 FRONTEND_URL=http://localhost:5173
 
-# --- SMTP Email Configuration ---
-# Your server uses these credentials to send emails
-EMAIL_HOST=
-EMAIL_PORT=
-EMAIL_SECURE=
-EMAIL_USER=
-EMAIL_PASSWORD=
-EMAIL_FROM=
+# --- Email Configuration ---
 
-```
+EMAIL_HOST=smtp.yourmail.com
+EMAIL_PORT=465
+EMAIL_SECURE=true
+EMAIL_USER=your_email_user
+EMAIL_PASSWORD=your_email_password
+EMAIL_FROM="BookHub <noreply@bookhub.com>"
+\`\`\`
+
+---
+
+### 3️⃣ Install Dependencies
+
+#### Install frontend dependencies:
+
+\`\`\`bash
+cd client
+npm install
+\`\`\`
+
+#### Install backend dependencies:
+
+\`\`\`bash
+cd ../server
+npm install
+\`\`\`
+
+---
+
+### 4️⃣ Run the Project Locally
+
+#### Start the frontend:
+
+\`\`\`bash
+cd client
+npm run dev
+\`\`\`
+
+#### Start the backend:
+
+\`\`\`bash
+cd ../server
+npm start
+\`\`\`
+
+Your app should now be running at:
+
+- Frontend → http://localhost:5173
+- Backend → http://localhost:3000
+
+---
+
+## 🌍 Deployment
+
+This project is fully deployed on **Vercel**, using a **serverless Express backend** and a static React frontend.
+
+- **Frontend URL:**  
+  [https://bookhubrentalplatform.vercel.app/](https://bookhubrentalplatform.vercel.app/)
+- **API Base URL (Serverless):**  
+  \`https://bookhubrentalplatform.vercel.app/api\`
+
+---
+
+## 💡 Example API Endpoint
+
+Test if the backend is live:
+\`\`\`
+GET https://bookhubrentalplatform.vercel.app/api/health
+\`\`\`
+
+Response:
+\`\`\`json
+{
+"status": "ok",
+"message": "BookHub Server is running",
+"timestamp": "2025-10-21T16:30:00Z"
+}
+\`\`\`
+
+---
+
+## 🧑‍💻 Author
+
+**Avinash Gautam**  
+ [a-proton](https://github.com/a-proton)
