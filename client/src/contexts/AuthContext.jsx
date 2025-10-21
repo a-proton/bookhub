@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
+import { createContext, useState, useEffect, useContext } from "react";
 import axios from "axios";
 
 // AXIOS INSTANCE with proper token handling
@@ -186,7 +186,6 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log("Attempting admin login with:", { email });
 
-      // Clear any existing auth data first
       clearAuthData();
 
       const response = await api.post("/admin/login", {

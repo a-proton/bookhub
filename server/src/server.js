@@ -16,8 +16,7 @@ import membershipPlanRoutes from "./api/membershipPlanRoute.js";
 import rentalRoutes from "./api/rentalRoutes.js";
 import messageRoutes from "./api/messageRoute.js";
 import authRoutes from "./api/authRoutes.js";
-import { isAdmin } from "./middleware/authMiddleware.js";
-
+import adminRoutes from "./api/admin/login.js";
 const app = express();
 
 // ==================== MIDDLEWARE ====================
@@ -62,7 +61,7 @@ app.get("/api/health", (req, res) => {
     environment: process.env.NODE_ENV || "development",
   });
 });
-
+app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/admin/books", adminBookRoutes);
 app.use("/api/users", userRoutes);
