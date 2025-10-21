@@ -6,7 +6,7 @@ import { isAdmin } from "../middleware/authMiddleware.js";
 
 // Import admin-specific routes
 import adminBookRoutes from "./admin/bookRoute.js";
-import adminUserRoutes from "./admin/userRoute.js";
+import adminUserRoutes from "./userRoute.js";
 
 const router = express.Router();
 
@@ -93,7 +93,7 @@ router.get("/dashboard-stats", isAdmin, async (req, res) => {
       totalBooks,
       activeMembers,
       pendingApplications,
-      membershipPlans: 2, // Static for now, implement based on your needs
+      membershipPlans, // Static for now, implement based on your needs
     };
 
     console.log("Dashboard stats requested:", stats);
