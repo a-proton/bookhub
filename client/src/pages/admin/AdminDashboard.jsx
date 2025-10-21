@@ -32,7 +32,7 @@ const AdminDashboard = () => {
       console.log("Loading dashboard data...");
 
       // Fetch dashboard stats from API
-      const response = await api.get("/api/admin/dashboard-stats");
+      const response = await api.get("/admin/dashboard-stats");
       const stats = response.data;
       console.log("Dashboard stats received:", stats);
 

@@ -92,7 +92,7 @@ const Profile = () => {
   }, [location.state]);
 
   // Define API_URL with fallback
-  const API_BASE_URL = API_URL || "http://localhost:5000/api";
+  const VITE_API_BASE_URL = API_URL || "http://localhost:3000/api";
 
   // Separate function to fetch user preferences
   const fetchUserPreferences = useCallback(async () => {
@@ -105,15 +105,18 @@ const Profile = () => {
 
       console.log(
         "Fetching user preferences from:",
-        `${API_BASE_URL}/users/validate-token`
+        `${VITE_API_BASE_URL}/users/validate-token`
       );
-      const response = await fetch(`${API_BASE_URL}/users/validate-token`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `${VITE_API_BASE_URL}/users/validate-token`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -125,7 +128,7 @@ const Profile = () => {
     } catch (error) {
       console.error("Error fetching user preferences:", error);
     }
-  }, [API_BASE_URL]);
+  }, [VITE_API_BASE_URL]);
 
   // Improved loadUserData function
   const loadUserData = useCallback(async () => {
@@ -289,11 +292,11 @@ const Profile = () => {
       const token = localStorage.getItem("token");
       console.log(
         "Updating profile with API URL:",
-        `${API_BASE_URL}/auth/update-profile`
+        `${VITE_API_BASE_URL}/auth/update-profile`
       );
 
       // Update user profile
-      const response = await fetch(`${API_BASE_URL}/auth/update-profile`, {
+      const response = await fetch(`${VITE_API_BASE_URL}/auth/update-profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -326,7 +329,7 @@ const Profile = () => {
       if (response.ok) {
         // After successful profile update, refresh recommendations
         try {
-          await fetch(`${API_BASE_URL}/books/refresh-recommendations`, {
+          await fetch(`${VITE_API_BASE_URL}/books/refresh-recommendations`, {
             method: "POST",
             headers: {
               Authorization: `Bearer ${token}`,
@@ -795,7 +798,7 @@ const Profile = () => {
             size="sm"
             className="bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200"
             onClick={() => {
-              console.log("Current API URL:", API_BASE_URL);
+              console.log("Current API URL:", VITE_API_BASE_URL);
               console.log("Auth Context API_URL:", API_URL || "Not available");
               console.log("Current user state:", currentUser);
               console.log("User preferences:", userPreferences);

@@ -5,7 +5,8 @@ import axios from "axios";
 export const api = axios.create({
   baseURL: "/api",
 });
-
+const VITE_API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 // Create the context
 const AuthContext = createContext(null);
 
@@ -88,7 +89,9 @@ export const AuthProvider = ({ children }) => {
 
         // Then try to validate the token with the server for regular users
         try {
-          const response = await api.get("/users/validate-token");
+          const response = await api.get(
+            `${VITE_API_BASE_URL}/users/validate-token`
+          );
 
           if (response.data && response.data.user) {
             const validatedUser = response.data.user;

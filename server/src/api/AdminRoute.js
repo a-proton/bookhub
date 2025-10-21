@@ -1,4 +1,3 @@
-// src/api/adminRoute.js
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -81,8 +80,8 @@ router.post("/login", async (req, res) => {
   }
 });
 
-// Admin dashboard stats
-router.get("/dashboard/stats", isAdmin, async (req, res) => {
+// FIXED:   "/dashboard-stats"
+router.get("/dashboard-stats", isAdmin, async (req, res) => {
   try {
     // Import Book model here to avoid circular dependency issues
     const Book = (await import("../database/schema/bookSchema.js")).default;

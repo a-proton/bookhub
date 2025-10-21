@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Create axios instance with base configuration
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -111,7 +111,7 @@ apiClient.interceptors.response.use(
 // Helper function to validate token
 export const validateToken = async () => {
   try {
-    const response = await apiClient.get("/api/users/validate-token");
+    const response = await apiClient.get("/users/validate-token");
     return response.data;
   } catch (error) {
     console.error("Token validation failed:", error);
